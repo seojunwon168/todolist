@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tasks — 초미니멀리즘 할 일 목록</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app-container">
+    <!-- 헤더 영역 -->
+    <header class="app-header">
+      <div class="header-top">
+        <h1 class="app-title">Tasks</h1>
+        <span class="stats-badge" id="statsText">0 / 0</span>
+      </div>
+    </header>
+
+    <!-- 할 일 입력 폼 -->
+    <section class="input-section">
+      <form id="todoForm" class="todo-form">
+        <input 
+          type="text" 
+          id="todoInput" 
+          class="todo-input" 
+          placeholder="새로운 할 일을 입력하세요..." 
+          autocomplete="off"
+          autofocus
+        >
+        <button type="submit" class="add-btn" aria-label="할 일 추가">추가</button>
+      </form>
+    </section>
+
+    <!-- 필터 및 정렬 안내 탭 -->
+    <section class="controls-section">
+      <div class="filter-tabs">
+        <button class="filter-btn active" data-filter="all">전체 <span id="badgeAll">0</span></button>
+        <button class="filter-btn" data-filter="active">진행 중 <span id="badgeActive">0</span></button>
+        <button class="filter-btn" data-filter="completed">완료됨 <span id="badgeCompleted">0</span></button>
+      </div>
+      <span class="sort-notice">자동 정렬됨</span>
+    </section>
+
+    <!-- 메인 할 일 리스트 영역 -->
+    <section class="list-section">
+      <div id="emptyState" class="empty-state">
+        <p>등록된 할 일이 없습니다.</p>
+      </div>
+      <ul id="todoList" class="todo-list"></ul>
+    </section>
+
+    <!-- 휴지통 영역 (아코디언 형태) -->
+    <section class="trash-section">
+      <div class="trash-header" id="trashToggle">
+        <div class="trash-title-area">
+          <svg class="chevron-icon" id="trashChevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          <span class="trash-title">휴지통</span>
+          <span class="trash-count" id="trashCount">0</span>
+        </div>
+        <button type="button" class="empty-trash-btn" id="emptyTrashBtn" title="휴지통 전체 비우기">
+          휴지통 비우기
+        </button>
+      </div>
+
+      <div class="trash-body" id="trashBody">
+        <div id="trashEmptyState" class="trash-empty-state">
+          <p>휴지통이 비어 있습니다.</p>
+        </div>
+        <ul id="trashList" class="trash-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- 초미니멀리즘 커스텀 확인 모달 (Custom Confirmation Modal) -->
+  <div id="confirmModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDesc">
+    <div class="modal-card">
+      <h3 id="modalTitle" class="modal-title">확인</h3>
+      <p id="modalDesc" class="modal-desc">정말 진행하시겠습니까?</p>
+      <div class="modal-actions">
+        <button type="button" id="modalCancelBtn" class="modal-btn cancel-btn">취소</button>
+        <button type="button" id="modalConfirmBtn" class="modal-btn confirm-btn">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

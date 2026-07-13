@@ -1,0 +1,556 @@
+:root {
+  /* Ultra-Minimalist Monochrome Palette */
+  --bg-page: #ffffff;
+  --text-main: #111111;
+  --text-secondary: #555555;
+  --text-muted: #888888;
+  --text-light: #b0b0b0;
+  --text-completed: #a1a1aa;
+  
+  --border-light: #f0f0f0;
+  --border-main: #e5e5e5;
+  --border-hover: #cccccc;
+  --border-dark: #111111;
+  
+  --bg-hover: #fafafa;
+  --bg-active: #f3f3f3;
+  --bg-input: #ffffff;
+  
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 4rem 1.5rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* App Container */
+.app-container {
+  width: 100%;
+  max-width: 540px;
+  background: var(--bg-page);
+}
+
+/* Header */
+.app-header {
+  margin-bottom: 2rem;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--border-main);
+  padding-bottom: 0.85rem;
+}
+
+.app-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--text-main);
+}
+
+.stats-badge {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Input Section */
+.input-section {
+  margin-bottom: 1.5rem;
+}
+
+.todo-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.todo-input {
+  flex: 1;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text-main);
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-main);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.todo-input::placeholder {
+  color: var(--text-light);
+}
+
+.todo-input:focus {
+  border-color: var(--border-dark);
+}
+
+.add-btn {
+  padding: 0 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: #ffffff;
+  background-color: var(--border-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  white-space: nowrap;
+}
+
+.add-btn:hover {
+  opacity: 0.85;
+}
+
+.add-btn:active {
+  opacity: 1;
+}
+
+/* Controls Section */
+.controls-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.filter-btn {
+  background: transparent;
+  border: none;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.filter-btn:hover {
+  color: var(--text-main);
+  background-color: var(--bg-hover);
+}
+
+.filter-btn.active {
+  color: var(--text-main);
+  background-color: var(--bg-active);
+  font-weight: 600;
+}
+
+.filter-btn span {
+  font-size: 0.72rem;
+  color: var(--text-light);
+}
+
+.filter-btn.active span {
+  color: var(--text-secondary);
+}
+
+.sort-notice {
+  font-size: 0.75rem;
+  color: var(--text-light);
+}
+
+/* List Section */
+.list-section {
+  min-height: 120px;
+}
+
+.todo-list, .trash-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Todo Item Row (Linear / Notion Style) */
+.todo-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast), transform var(--transition-normal);
+  will-change: transform;
+}
+
+.todo-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.todo-item.completed {
+  opacity: 0.65;
+}
+
+.todo-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+/* Minimalist Checkbox */
+.todo-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-hover);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  background-color: transparent;
+  transition: all var(--transition-fast);
+  display: grid;
+  place-content: center;
+  flex-shrink: 0;
+}
+
+.todo-checkbox::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background-color: #ffffff;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform 0.12s ease-in-out;
+}
+
+.todo-checkbox:checked {
+  background-color: var(--text-main);
+  border-color: var(--text-main);
+}
+
+.todo-checkbox:checked::after {
+  transform: scale(1);
+}
+
+/* Todo Text */
+.todo-text {
+  font-size: 0.9rem;
+  color: var(--text-main);
+  word-break: break-word;
+  transition: color var(--transition-fast);
+}
+
+.todo-item.completed .todo-text {
+  color: var(--text-completed);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-completed);
+}
+
+/* Delete Button (Trash Icon / Text) */
+.delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-light);
+  padding: 0.25rem 0.4rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.todo-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.delete-btn:hover {
+  color: var(--text-main);
+  background-color: var(--bg-active);
+}
+
+/* Empty States */
+.empty-state, .trash-empty-state {
+  display: none;
+  padding: 2.5rem 0;
+  text-align: center;
+  color: var(--text-light);
+  font-size: 0.85rem;
+}
+
+.empty-state.show, .trash-empty-state.show {
+  display: block;
+}
+
+/* Trash Section (Accordion) */
+.trash-section {
+  margin-top: 3rem;
+  border-top: 1px solid var(--border-main);
+  padding-top: 1rem;
+}
+
+.trash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  user-select: none;
+}
+
+.trash-title-area {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.chevron-icon {
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.trash-section.open .chevron-icon {
+  transform: rotate(90deg);
+}
+
+.trash-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.trash-count {
+  font-size: 0.75rem;
+  color: var(--text-light);
+}
+
+.empty-trash-btn {
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.empty-trash-btn:hover {
+  color: var(--text-main);
+  background-color: var(--bg-hover);
+}
+
+/* Trash Body Accordion Effect */
+.trash-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  opacity: 0;
+}
+
+.trash-section.open .trash-body {
+  max-height: 500px;
+  opacity: 1;
+  margin-top: 0.5rem;
+}
+
+/* Trash List Items */
+.trash-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.85rem;
+}
+
+.trash-text {
+  color: var(--text-light);
+  text-decoration: line-through;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.trash-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  background: transparent;
+  border: 1px solid var(--border-main);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.action-btn.restore:hover {
+  color: var(--text-main);
+  border-color: var(--border-dark);
+  background-color: var(--bg-hover);
+}
+
+.action-btn.permanent-delete:hover {
+  color: #ef4444;
+  border-color: #fca5a5;
+  background-color: #fef2f2;
+}
+
+/* Ultra-Minimalist Custom Confirmation Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(17, 17, 17, 0.4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.modal-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 380px;
+  background-color: #ffffff;
+  border: 1px solid var(--border-main);
+  border-radius: var(--radius-md);
+  padding: 1.5rem 1.5rem 1.25rem;
+  transform: scale(0.96) translateY(6px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-overlay.show .modal-card {
+  transform: scale(1) translateY(0);
+}
+
+.modal-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 0.5rem;
+}
+
+.modal-desc {
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.modal-btn {
+  padding: 0.5rem 0.95rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.cancel-btn {
+  background-color: transparent;
+  border: 1px solid var(--border-main);
+  color: var(--text-secondary);
+}
+
+.cancel-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-main);
+  border-color: var(--border-hover);
+}
+
+.confirm-btn {
+  background-color: var(--border-dark);
+  border: 1px solid var(--border-dark);
+  color: #ffffff;
+}
+
+.confirm-btn:hover {
+  opacity: 0.88;
+}
+
+.confirm-btn.destructive {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.confirm-btn.destructive:hover {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
+}
+
+/* Animations for item entry/leave */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.item-enter {
+  animation: fadeIn 0.2s ease forwards;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  body {
+    padding: 2rem 1rem;
+  }
+  
+  .todo-item:hover .delete-btn {
+    opacity: 1;
+  }
+}
