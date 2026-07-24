@@ -11,18 +11,46 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- 모바일 사이드바 배경 오버레이 -->
+  <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+  <!-- 좌측 사이드바 (폴더 관리) -->
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <h2 class="sidebar-title">Projects</h2>
+      <button type="button" id="addFolderBtn" class="add-folder-btn" title="새 폴더 추가">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      </button>
+    </div>
+    
+    <div class="sidebar-content">
+      <ul id="folderList" class="folder-list">
+        <!-- 폴더 항목들이 여기에 렌더링됩니다 -->
+      </ul>
+    </div>
+  </aside>
+
+  <!-- 메인 애플리케이션 영역 -->
   <main class="app-container">
-    <!-- 헤더 영역 -->
     <header class="app-header">
       <div class="header-top">
-        <h1 class="app-title">Tasks</h1>
+        <div class="header-left">
+          <!-- 모바일 사이드바 토글 버튼 -->
+          <button type="button" id="mobileMenuBtn" class="mobile-menu-btn" aria-label="메뉴 열기">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+          </button>
+          <h1 class="app-title" id="currentFolderTitle">Tasks</h1>
+        </div>
         <span class="stats-badge" id="statsText">0 / 0</span>
       </div>
     </header>
 
-    <!-- 할 일 입력 폼 -->
     <section class="input-section">
       <form id="todoForm" class="todo-form">
+        <!-- 항목 유형 선택 버튼 (Task vs Item) -->
+        <button type="button" id="typeToggleBtn" class="type-toggle-btn" data-type="task" title="유형 변경">
+          Task
+        </button>
         <input 
           type="text" 
           id="todoInput" 
@@ -35,7 +63,6 @@
       </form>
     </section>
 
-    <!-- 필터 및 정렬 안내 탭 -->
     <section class="controls-section">
       <div class="filter-tabs">
         <button class="filter-btn active" data-filter="all">전체 <span id="badgeAll">0</span></button>
@@ -48,12 +75,12 @@
     <!-- 메인 할 일 리스트 영역 -->
     <section class="list-section">
       <div id="emptyState" class="empty-state">
-        <p>등록된 할 일이 없습니다.</p>
+        <p>등록된 항목이 없습니다.</p>
       </div>
       <ul id="todoList" class="todo-list"></ul>
     </section>
 
-    <!-- 휴지통 영역 (아코디언 형태) -->
+    <!-- 휴지통 영역 (아코디언) -->
     <section class="trash-section">
       <div class="trash-header" id="trashToggle">
         <div class="trash-title-area">
@@ -75,7 +102,7 @@
     </section>
   </main>
 
-  <!-- 초미니멀리즘 커스텀 확인 모달 (Custom Confirmation Modal) -->
+  <!-- 커스텀 확인 모달 -->
   <div id="confirmModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDesc">
     <div class="modal-card">
       <h3 id="modalTitle" class="modal-title">확인</h3>

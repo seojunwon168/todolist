@@ -1,440 +1,713 @@
-/**
- * Tasks — 초미니멀리즘 자동 정렬 To-Do List with Trash & Custom Confirmation Modal
- * Notion / Linear 감성의 간결한 UI/UX, FLIP 자동 정렬, 아코디언 휴지통, 커스텀 모달 확인 로직
- */
+// State Management
+let folders = JSON.parse(localStorage.getItem('tasks_minimal_folders')) || [{ id: 'inbox', name: 'Inbox' }];
+let activeFolderId = localStorage.getItem('tasks_minimal_active_folder') || 'inbox';
+let todos = JSON.parse(localStorage.getItem('tasks_minimal_data_v2')) || [];
+let filterState = 'all';
 
-class MinimalTodoApp {
-  constructor() {
-    this.todos = JSON.parse(localStorage.getItem('tasks_minimal_data')) || [
-      { id: 1, text: 'Linear 스타일의 여백과 간결한 1px 보더 라인 확인하기', completed: false, deleted: false, createdAt: Date.now() - 3000 },
-      { id: 2, text: '완료 체크박스를 클릭하여 하단으로 자동 정렬 테스트하기', completed: false, deleted: false, createdAt: Date.now() - 2000 },
-      { id: 3, text: '휴지통으로 이동 후 아코디언에서 복구 또는 영구 삭제하기', completed: true, deleted: false, createdAt: Date.now() - 1000 },
-      { id: 4, text: '이전에 삭제된 샘플 할 일 항목 (복구 가능)', completed: false, deleted: true, createdAt: Date.now() - 4000, deletedAt: Date.now() - 500 }
-    ];
-    this.currentFilter = 'all';
-    this.isTrashOpen = false;
-    this.activeModalConfirmCallback = null;
+// DOM Elements - General
+const todoForm = document.getElementById('todoForm');
+const todoInput = document.getElementById('todoInput');
+const todoList = document.getElementById('todoList');
+const emptyState = document.getElementById('emptyState');
+const statsText = document.getElementById('statsText');
+const typeToggleBtn = document.getElementById('typeToggleBtn');
 
-    document.addEventListener('DOMContentLoaded', () => this.init());
-  }
+// DOM Elements - Sidebar & Mobile
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const folderList = document.getElementById('folderList');
+const addFolderBtn = document.getElementById('addFolderBtn');
+const currentFolderTitle = document.getElementById('currentFolderTitle');
 
-  init() {
-    // DOM 요소 바인딩
-    this.todoForm = document.getElementById('todoForm');
-    this.todoInput = document.getElementById('todoInput');
-    this.todoList = document.getElementById('todoList');
-    this.emptyState = document.getElementById('emptyState');
-    this.statsText = document.getElementById('statsText');
-    
-    this.badgeAll = document.getElementById('badgeAll');
-    this.badgeActive = document.getElementById('badgeActive');
-    this.badgeCompleted = document.getElementById('badgeCompleted');
-    this.filterBtns = document.querySelectorAll('.filter-btn');
+// DOM Elements - Filters & Trash
+const filterBtns = document.querySelectorAll('.filter-btn');
+const badgeAll = document.getElementById('badgeAll');
+const badgeActive = document.getElementById('badgeActive');
+const badgeCompleted = document.getElementById('badgeCompleted');
 
-    // 휴지통 관련 DOM
-    this.trashSection = document.querySelector('.trash-section');
-    this.trashToggle = document.getElementById('trashToggle');
-    this.trashTitleArea = document.querySelector('.trash-title-area');
-    this.trashList = document.getElementById('trashList');
-    this.trashCount = document.getElementById('trashCount');
-    this.trashEmptyState = document.getElementById('trashEmptyState');
-    this.emptyTrashBtn = document.getElementById('emptyTrashBtn');
+const trashToggle = document.getElementById('trashToggle');
+const trashSection = document.querySelector('.trash-section');
+const trashCount = document.getElementById('trashCount');
+const trashList = document.getElementById('trashList');
+const trashEmptyState = document.getElementById('trashEmptyState');
+const emptyTrashBtn = document.getElementById('emptyTrashBtn');
 
-    // 커스텀 모달 관련 DOM
-    this.confirmModal = document.getElementById('confirmModal');
-    this.modalTitle = document.getElementById('modalTitle');
-    this.modalDesc = document.getElementById('modalDesc');
-    this.modalCancelBtn = document.getElementById('modalCancelBtn');
-    this.modalConfirmBtn = document.getElementById('modalConfirmBtn');
+// DOM Elements - Modal
+const confirmModal = document.getElementById('confirmModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalDesc = document.getElementById('modalDesc');
+const modalCancelBtn = document.getElementById('modalCancelBtn');
+const modalConfirmBtn = document.getElementById('modalConfirmBtn');
 
-    this.bindEvents();
-    this.render(false);
-  }
+let modalCallback = null;
 
-  bindEvents() {
-    // 1. 할 일 추가
-    this.todoForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      this.addTodo();
-    });
+// Initialize
+function init() {
+  migrateOldData(); // Migrate if previous version data exists
+  setupEventListeners();
+  renderFolders();
+  renderTodos();
+}
 
-    // 2. 필터 변경
-    this.filterBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.filterBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.currentFilter = btn.dataset.filter;
-        this.render(false);
-      });
-    });
-
-    // 3. 휴지통 아코디언 토글
-    this.trashTitleArea.addEventListener('click', () => {
-      this.isTrashOpen = !this.isTrashOpen;
-      this.trashSection.classList.toggle('open', this.isTrashOpen);
-    });
-
-    // 4. 휴지통 비우기 버튼
-    this.emptyTrashBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.emptyTrash();
-    });
-
-    // 5. 모달 제어 이벤트 (취소, 확인, 오버레이 클릭, ESC/Enter 키 처리)
-    this.modalCancelBtn.addEventListener('click', () => this.hideConfirmModal());
-    
-    this.modalConfirmBtn.addEventListener('click', () => {
-      if (typeof this.activeModalConfirmCallback === 'function') {
-        this.activeModalConfirmCallback();
-      }
-      this.hideConfirmModal();
-    });
-
-    this.confirmModal.addEventListener('click', (e) => {
-      if (e.target === this.confirmModal) {
-        this.hideConfirmModal();
-      }
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (!this.confirmModal.classList.contains('show')) return;
-      if (e.key === 'Escape') {
-        this.hideConfirmModal();
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        this.modalConfirmBtn.click();
-      }
-    });
-  }
-
-  /**
-   * 커스텀 확인 모달 표시 Helper
-   */
-  showConfirmModal({ title, desc, confirmText = '확인', isDestructive = false, onConfirm }) {
-    this.modalTitle.textContent = title;
-    this.modalDesc.textContent = desc;
-    this.modalConfirmBtn.textContent = confirmText;
-    
-    if (isDestructive) {
-      this.modalConfirmBtn.classList.add('destructive');
-    } else {
-      this.modalConfirmBtn.classList.remove('destructive');
-    }
-
-    this.activeModalConfirmCallback = onConfirm;
-    this.confirmModal.classList.add('show');
-    this.modalConfirmBtn.focus();
-  }
-
-  /**
-   * 커스텀 확인 모달 숨기기 Helper
-   */
-  hideConfirmModal() {
-    this.confirmModal.classList.remove('show');
-    this.activeModalConfirmCallback = null;
-  }
-
-  /**
-   * 새로운 할 일 추가
-   */
-  addTodo() {
-    const text = this.todoInput.value.trim();
-    if (!text) return;
-
-    const positionsBefore = this.recordPositions();
-
-    const newTodo = {
-      id: Date.now(),
-      text: text,
-      completed: false,
-      deleted: false,
-      createdAt: Date.now()
-    };
-
-    this.todos.push(newTodo);
-    this.saveToStorage();
-
-    this.render(true, positionsBefore, newTodo.id);
-    this.todoInput.value = '';
-    this.todoInput.focus();
-  }
-
-  /**
-   * 완료 상태 토글 및 FLIP 자동 정렬
-   */
-  toggleTodo(id) {
-    const todo = this.todos.find(t => t.id === id);
-    if (!todo) return;
-
-    const positionsBefore = this.recordPositions();
-    todo.completed = !todo.completed;
-    this.saveToStorage();
-
-    this.render(true, positionsBefore);
-  }
-
-  /**
-   * 1. 메인 리스트에서 휴지통으로 이동 시 확인 (삭제 시 확인)
-   */
-  moveToTrash(id) {
-    const todo = this.todos.find(t => t.id === id);
-    if (!todo) return;
-
-    this.showConfirmModal({
-      title: '휴지통으로 이동',
-      desc: `"${todo.text}" 항목을 휴지통으로 이동하시겠습니까?`,
-      confirmText: '이동',
-      isDestructive: false,
-      onConfirm: () => {
-        const positionsBefore = this.recordPositions();
-        todo.deleted = true;
-        todo.deletedAt = Date.now();
-        this.saveToStorage();
-        this.render(true, positionsBefore);
-      }
-    });
-  }
-
-  /**
-   * 2. 휴지통에서 메인 리스트로 복구 시 확인 (복구 시 확인)
-   */
-  restoreTodo(id) {
-    const todo = this.todos.find(t => t.id === id);
-    if (!todo) return;
-
-    this.showConfirmModal({
-      title: '할 일 복구',
-      desc: `"${todo.text}" 항목을 메인 리스트로 복구하시겠습니까?`,
-      confirmText: '복구',
-      isDestructive: false,
-      onConfirm: () => {
-        const positionsBefore = this.recordPositions();
-        todo.deleted = false;
-        todo.deletedAt = null;
-        this.saveToStorage();
-        this.render(true, positionsBefore, id);
-      }
-    });
-  }
-
-  /**
-   * 3. 휴지통에서 영구 삭제 시 확인 (영구 삭제 시 확인)
-   */
-  permanentDeleteTodo(id) {
-    const todo = this.todos.find(t => t.id === id);
-    if (!todo) return;
-
-    this.showConfirmModal({
-      title: '영구 삭제',
-      desc: `"${todo.text}" 항목을 영구 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
-      confirmText: '영구 삭제',
-      isDestructive: true,
-      onConfirm: () => {
-        this.todos = this.todos.filter(t => t.id !== id);
-        this.saveToStorage();
-        this.render(false);
-      }
-    });
-  }
-
-  /**
-   * 4. 휴지통 전체 비우기 시 확인 (휴지통 비우기 확인)
-   */
-  emptyTrash() {
-    const trashItems = this.todos.filter(t => t.deleted);
-    if (trashItems.length === 0) return;
-
-    this.showConfirmModal({
-      title: '휴지통 전체 비우기',
-      desc: `휴지통에 있는 ${trashItems.length}개의 할 일을 모두 영구 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
-      confirmText: '모두 비우기',
-      isDestructive: true,
-      onConfirm: () => {
-        this.todos = this.todos.filter(t => !t.deleted);
-        this.saveToStorage();
-        this.render(false);
-      }
-    });
-  }
-
-  /**
-   * 정렬 규칙 (미완료 항목 상단, 완료 항목 하단)
-   */
-  getSortedMainTodos() {
-    return this.todos
-      .filter(t => !t.deleted)
-      .sort((a, b) => {
-        if (a.completed !== b.completed) {
-          return a.completed ? 1 : -1;
-        }
-        return b.createdAt - a.createdAt;
-      });
-  }
-
-  /**
-   * 필터링 적용
-   */
-  getFilteredTodos(sortedTodos) {
-    if (this.currentFilter === 'active') return sortedTodos.filter(t => !t.completed);
-    if (this.currentFilter === 'completed') return sortedTodos.filter(t => t.completed);
-    return sortedTodos;
-  }
-
-  /**
-   * 휴지통 항목 가져오기 (최신 삭제 순)
-   */
-  getTrashTodos() {
-    return this.todos
-      .filter(t => t.deleted)
-      .sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
-  }
-
-  /**
-   * FLIP 전 위치 기록
-   */
-  recordPositions() {
-    const positions = {};
-    this.todoList.querySelectorAll('.todo-item').forEach(item => {
-      const id = Number(item.dataset.id);
-      positions[id] = item.getBoundingClientRect().top;
-    });
-    return positions;
-  }
-
-  /**
-   * FLIP 애니메이션 실행
-   */
-  animateFLIP(positionsBefore, newId = null) {
-    this.todoList.querySelectorAll('.todo-item').forEach(item => {
-      const id = Number(item.dataset.id);
-      if (id === newId) {
-        item.classList.add('item-enter');
-        return;
-      }
-      const topBefore = positionsBefore[id];
-      if (topBefore !== undefined) {
-        const topAfter = item.getBoundingClientRect().top;
-        const deltaY = topBefore - topAfter;
-        if (deltaY !== 0) {
-          item.style.transition = 'none';
-          item.style.transform = `translateY(${deltaY}px)`;
-          requestAnimationFrame(() => {
-            item.getBoundingClientRect();
-            item.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
-            item.style.transform = 'translateY(0)';
-          });
-        }
-      }
-    });
-  }
-
-  /**
-   * 화면 전체 렌더링
-   */
-  render(animate = false, positionsBefore = {}, newId = null) {
-    const activeList = this.getSortedMainTodos();
-    const displayList = this.getFilteredTodos(activeList);
-    const trashList = this.getTrashTodos();
-
-    // 1. 통계 및 뱃지 업데이트
-    const totalCount = activeList.length;
-    const completedCount = activeList.filter(t => t.completed).length;
-    const activeCount = totalCount - completedCount;
-
-    this.statsText.textContent = `${completedCount} / ${totalCount}`;
-    this.badgeAll.textContent = totalCount;
-    this.badgeActive.textContent = activeCount;
-    this.badgeCompleted.textContent = completedCount;
-    this.trashCount.textContent = trashList.length;
-
-    // 2. 메인 리스트 렌더링
-    if (displayList.length === 0) {
-      this.todoList.innerHTML = '';
-      this.emptyState.classList.add('show');
-    } else {
-      this.emptyState.classList.remove('show');
-      this.todoList.innerHTML = displayList.map(todo => `
-        <li class="todo-item ${todo.completed ? 'completed' : ''}" data-id="${todo.id}">
-          <label class="todo-content">
-            <input 
-              type="checkbox" 
-              class="todo-checkbox" 
-              ${todo.completed ? 'checked' : ''}
-              aria-label="완료 여부 토글"
-            >
-            <span class="todo-text">${this.escapeHtml(todo.text)}</span>
-          </label>
-          <button class="delete-btn" title="휴지통으로 이동" aria-label="삭제">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-          </button>
-        </li>
-      `).join('');
-
-      // 이벤트 바인딩
-      this.todoList.querySelectorAll('.todo-item').forEach(item => {
-        const id = Number(item.dataset.id);
-        const content = item.querySelector('.todo-content');
-        const deleteBtn = item.querySelector('.delete-btn');
-
-        content.addEventListener('click', (e) => {
-          e.preventDefault();
-          this.toggleTodo(id);
-        });
-
-        deleteBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.moveToTrash(id);
-        });
-      });
-    }
-
-    // 3. 휴지통 리스트 렌더링
-    if (trashList.length === 0) {
-      this.trashList.innerHTML = '';
-      this.trashEmptyState.classList.add('show');
-      this.emptyTrashBtn.style.opacity = '0.3';
-      this.emptyTrashBtn.style.pointerEvents = 'none';
-    } else {
-      this.trashEmptyState.classList.remove('show');
-      this.emptyTrashBtn.style.opacity = '1';
-      this.emptyTrashBtn.style.pointerEvents = 'auto';
-
-      this.trashList.innerHTML = trashList.map(todo => `
-        <li class="trash-item" data-id="${todo.id}">
-          <span class="trash-text">${this.escapeHtml(todo.text)}</span>
-          <div class="trash-actions">
-            <button type="button" class="action-btn restore" title="메인 리스트로 복구">복구</button>
-            <button type="button" class="action-btn permanent-delete" title="영구 삭제">영구 삭제</button>
-          </div>
-        </li>
-      `).join('');
-
-      // 휴지통 액션 이벤트 바인딩
-      this.trashList.querySelectorAll('.trash-item').forEach(item => {
-        const id = Number(item.dataset.id);
-        const restoreBtn = item.querySelector('.restore');
-        const deleteBtn = item.querySelector('.permanent-delete');
-
-        restoreBtn.addEventListener('click', () => this.restoreTodo(id));
-        deleteBtn.addEventListener('click', () => this.permanentDeleteTodo(id));
-      });
-    }
-
-    // 4. 애니메이션 실행
-    if (animate && Object.keys(positionsBefore).length > 0) {
-      this.animateFLIP(positionsBefore, newId);
-    }
-  }
-
-  saveToStorage() {
-    localStorage.setItem('tasks_minimal_data', JSON.stringify(this.todos));
-  }
-
-  escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+// Data Migration (from v1 to v2)
+function migrateOldData() {
+  const oldData = JSON.parse(localStorage.getItem('tasks_minimal_data'));
+  if (oldData && !localStorage.getItem('tasks_minimal_data_v2')) {
+    todos = oldData.map((item, index) => ({
+      ...item,
+      folderId: 'inbox',
+      type: 'task',
+      order: index
+    }));
+    saveData();
+    localStorage.removeItem('tasks_minimal_data');
   }
 }
 
-new MinimalTodoApp();
+// Save to LocalStorage
+function saveData() {
+  localStorage.setItem('tasks_minimal_data_v2', JSON.stringify(todos));
+  localStorage.setItem('tasks_minimal_folders', JSON.stringify(folders));
+  localStorage.setItem('tasks_minimal_active_folder', activeFolderId);
+}
+
+/* ================================
+   Event Listeners Setup
+================================ */
+function setupEventListeners() {
+  // Mobile Sidebar
+  mobileMenuBtn.addEventListener('click', () => {
+    sidebar.classList.add('open');
+    sidebarOverlay.classList.add('show');
+  });
+  sidebarOverlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('show');
+  });
+
+  // Type Toggle (Task / Item)
+  typeToggleBtn.addEventListener('click', () => {
+    const currentType = typeToggleBtn.dataset.type;
+    const newType = currentType === 'task' ? 'item' : 'task';
+    typeToggleBtn.dataset.type = newType;
+    typeToggleBtn.textContent = newType === 'task' ? 'Task' : 'Item';
+  });
+
+  // Folder Actions
+  addFolderBtn.addEventListener('click', addNewFolder);
+
+  // Todo Form
+  todoForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = todoInput.value.trim();
+    if (text) {
+      addTodo(text, typeToggleBtn.dataset.type);
+      todoInput.value = '';
+    }
+  });
+
+  // Filters
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filterState = btn.dataset.filter;
+      renderTodos();
+    });
+  });
+
+  // Trash Accordion
+  trashToggle.addEventListener('click', (e) => {
+    if (e.target.closest('.empty-trash-btn')) return;
+    trashSection.classList.toggle('open');
+  });
+
+  // Empty Trash
+  emptyTrashBtn.addEventListener('click', () => {
+    showModal(
+      '휴지통 비우기',
+      '휴지통을 모두 비우시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+      true,
+      () => {
+        todos = todos.filter(t => !t.deleted);
+        saveData();
+        renderTodos();
+      }
+    );
+  });
+
+  // Modal Cancel
+  modalCancelBtn.addEventListener('click', closeModal);
+}
+
+/* ================================
+   Folder System (Sidebar)
+================================ */
+function renderFolders() {
+  folderList.innerHTML = '';
+  
+  folders.forEach(folder => {
+    const li = document.createElement('li');
+    li.className = `folder-item ${folder.id === activeFolderId ? 'active' : ''}`;
+    
+    const textSpan = document.createElement('span');
+    textSpan.className = 'folder-text';
+    textSpan.textContent = folder.name;
+    
+    // Double click to rename folder
+    textSpan.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      startFolderEdit(folder.id, li, textSpan);
+    });
+    
+    li.addEventListener('click', () => {
+      activeFolderId = folder.id;
+      saveData();
+      renderFolders();
+      renderTodos();
+      // Close sidebar on mobile
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('show');
+    });
+
+    li.appendChild(textSpan);
+
+    if (folder.id !== 'inbox') {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'folder-delete-btn';
+      delBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteFolder(folder.id, folder.name);
+      });
+      li.appendChild(delBtn);
+    }
+    
+    folderList.appendChild(li);
+  });
+  
+  const activeFolder = folders.find(f => f.id === activeFolderId) || folders[0];
+  currentFolderTitle.textContent = activeFolder.name;
+}
+
+function addNewFolder() {
+  const folderId = 'folder_' + Date.now();
+  const folderName = 'New Project';
+  folders.push({ id: folderId, name: folderName });
+  activeFolderId = folderId;
+  saveData();
+  renderFolders();
+  renderTodos();
+  
+  // Try to focus the newly added folder for editing
+  setTimeout(() => {
+    const items = folderList.querySelectorAll('.folder-item');
+    const lastItem = items[items.length - 1];
+    if (lastItem) {
+      const textSpan = lastItem.querySelector('.folder-text');
+      startFolderEdit(folderId, lastItem, textSpan);
+    }
+  }, 10);
+}
+
+function startFolderEdit(id, liElement, textSpan) {
+  const currentName = textSpan.textContent;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'folder-edit-input';
+  input.value = currentName;
+  
+  liElement.replaceChild(input, textSpan);
+  input.focus();
+  input.select();
+  
+  const saveFolder = () => {
+    const newName = input.value.trim() || currentName;
+    const folder = folders.find(f => f.id === id);
+    if (folder) folder.name = newName;
+    saveData();
+    renderFolders();
+  };
+  
+  input.addEventListener('blur', saveFolder);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveFolder();
+    if (e.key === 'Escape') {
+      input.value = currentName;
+      saveFolder();
+    }
+  });
+}
+
+function deleteFolder(folderId, folderName) {
+  showModal(
+    '폴더 삭제',
+    `'${folderName}' 폴더와 안에 있는 모든 할 일이 삭제됩니다.\n계속하시겠습니까?`,
+    true,
+    () => {
+      // Remove folder
+      folders = folders.filter(f => f.id !== folderId);
+      // Remove all todos inside this folder
+      todos = todos.filter(t => t.folderId !== folderId);
+      
+      activeFolderId = 'inbox';
+      saveData();
+      renderFolders();
+      renderTodos();
+    }
+  );
+}
+
+/* ================================
+   Todo Management
+================================ */
+function getActiveTodos() {
+  // Sort logic: Incomplete first, then completed. Within same group, sort by custom 'order'.
+  let activeList = todos.filter(t => t.folderId === activeFolderId && !t.deleted);
+  
+  activeList.sort((a, b) => {
+    if (a.completed === b.completed) {
+      return a.order - b.order;
+    }
+    return a.completed ? 1 : -1;
+  });
+  
+  return activeList;
+}
+
+function getFilteredTodos() {
+  const list = getActiveTodos();
+  if (filterState === 'active') return list.filter(t => !t.completed);
+  if (filterState === 'completed') return list.filter(t => t.completed);
+  return list;
+}
+
+function getTrashTodos() {
+  return todos.filter(t => t.folderId === activeFolderId && t.deleted).sort((a, b) => b.deletedAt - a.deletedAt);
+}
+
+function addTodo(text, type) {
+  const activeList = getActiveTodos();
+  const maxOrder = activeList.length > 0 ? Math.max(...activeList.map(t => t.order)) : 0;
+  
+  const newTodo = {
+    id: Date.now().toString(),
+    folderId: activeFolderId,
+    text: text,
+    completed: false,
+    type: type, // 'task' or 'item'
+    order: maxOrder + 1,
+    createdAt: Date.now()
+  };
+  
+  todos.push(newTodo);
+  saveData();
+  
+  // If filter is completed, switch to all to see the new item
+  if (filterState === 'completed') {
+    filterState = 'all';
+    filterBtns.forEach(btn => btn.classList.remove('active'));
+    document.querySelector('[data-filter="all"]').classList.add('active');
+  }
+  
+  renderTodos();
+}
+
+function toggleTodo(id) {
+  const todo = todos.find(t => t.id === id);
+  if (todo) {
+    todo.completed = !todo.completed;
+    saveData();
+    renderTodos(true); // pass true for FLIP animation
+  }
+}
+
+function startInlineEdit(id, textElement) {
+  const todo = todos.find(t => t.id === id);
+  if (!todo || todo.completed) return; // Disallow editing completed items
+  
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'todo-edit-input';
+  input.value = todo.text;
+  
+  textElement.parentNode.replaceChild(input, textElement);
+  input.focus();
+  
+  // Place cursor at end
+  const length = input.value.length;
+  input.setSelectionRange(length, length);
+  
+  const saveEdit = () => {
+    const newText = input.value.trim();
+    if (newText) {
+      todo.text = newText;
+    }
+    saveData();
+    renderTodos(); // Re-render to restore text spans
+  };
+  
+  input.addEventListener('blur', saveEdit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveEdit();
+    if (e.key === 'Escape') {
+      input.value = todo.text; // Revert
+      saveEdit();
+    }
+  });
+}
+
+function moveToTrash(id) {
+  showModal(
+    '항목 삭제',
+    '이 항목을 휴지통으로 이동하시겠습니까?',
+    false,
+    () => {
+      const todo = todos.find(t => t.id === id);
+      if (todo) {
+        todo.deleted = true;
+        todo.deletedAt = Date.now();
+        saveData();
+        renderTodos(true);
+      }
+    }
+  );
+}
+
+function restoreFromTrash(id) {
+  showModal(
+    '항목 복구',
+    '이 항목을 다시 메인 리스트로 복구하시겠습니까?',
+    false,
+    () => {
+      const todo = todos.find(t => t.id === id);
+      if (todo) {
+        todo.deleted = false;
+        delete todo.deletedAt;
+        
+        // Put at the bottom of the list order
+        const activeList = getActiveTodos();
+        const maxOrder = activeList.length > 0 ? Math.max(...activeList.map(t => t.order)) : 0;
+        todo.order = maxOrder + 1;
+        
+        saveData();
+        renderTodos();
+      }
+    }
+  );
+}
+
+function permanentlyDelete(id) {
+  showModal(
+    '영구 삭제',
+    '정말 이 항목을 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+    true,
+    () => {
+      todos = todos.filter(t => t.id !== id);
+      saveData();
+      renderTodos();
+    }
+  );
+}
+
+/* ================================
+   Drag & Drop Reordering
+================================ */
+let dragSourceId = null;
+let dragSourceElement = null;
+
+function handleDragStart(e) {
+  dragSourceId = this.dataset.id;
+  dragSourceElement = this;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragSourceId);
+  
+  // Slight delay to allow the drag image to be captured without the dragging class styling
+  setTimeout(() => {
+    this.classList.add('dragging');
+  }, 0);
+}
+
+function handleDragOver(e) {
+  if (e.preventDefault) {
+    e.preventDefault(); // Necessary to allow dropping
+  }
+  e.dataTransfer.dropEffect = 'move';
+  
+  if (this !== dragSourceElement) {
+    this.classList.add('drag-over');
+  }
+  return false;
+}
+
+function handleDragEnter(e) {
+  // Prevent visual flickering if needed
+}
+
+function handleDragLeave(e) {
+  this.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+  if (e.stopPropagation) {
+    e.stopPropagation();
+  }
+  this.classList.remove('drag-over');
+  
+  const targetId = this.dataset.id;
+  if (dragSourceId && dragSourceId !== targetId) {
+    reorderTodos(dragSourceId, targetId);
+  }
+  return false;
+}
+
+function handleDragEnd(e) {
+  this.classList.remove('dragging');
+  document.querySelectorAll('.todo-item').forEach(item => item.classList.remove('drag-over'));
+  dragSourceId = null;
+  dragSourceElement = null;
+}
+
+function reorderTodos(sourceId, targetId) {
+  const activeList = getFilteredTodos(); // Currently displayed list
+  
+  const sourceIndex = activeList.findIndex(t => t.id === sourceId);
+  const targetIndex = activeList.findIndex(t => t.id === targetId);
+  
+  if (sourceIndex < 0 || targetIndex < 0) return;
+  
+  const sourceTodo = activeList[sourceIndex];
+  const targetTodo = activeList[targetIndex];
+  
+  // Constraint: Prevent mixing completed and incomplete via drag&drop for simplicity
+  if (sourceTodo.completed !== targetTodo.completed) {
+    return; // Ignore drop across status boundaries
+  }
+  
+  // Reassign orders within the visual list
+  // Remove source, insert at target
+  const movedItem = activeList.splice(sourceIndex, 1)[0];
+  activeList.splice(targetIndex, 0, movedItem);
+  
+  // Re-calculate orders for all items in the group to maintain consistent increasing order
+  activeList.forEach((todo, idx) => {
+    todo.order = idx;
+  });
+  
+  saveData();
+  renderTodos(true); // Use FLIP to animate reordering
+}
+
+/* ================================
+   Rendering & FLIP Animation
+================================ */
+function renderTodos(useAnimation = false) {
+  const activeList = getActiveTodos();
+  const filteredList = getFilteredTodos();
+  const trashListArray = getTrashTodos();
+  
+  // Record positions for FLIP
+  let oldPositions = {};
+  if (useAnimation) {
+    oldPositions = recordPositions(todoList);
+  }
+
+  // Update Badges & Stats
+  const allCount = activeList.length;
+  const completedCount = activeList.filter(t => t.completed).length;
+  const activeCount = allCount - completedCount;
+  
+  badgeAll.textContent = allCount;
+  badgeActive.textContent = activeCount;
+  badgeCompleted.textContent = completedCount;
+  statsText.textContent = `${completedCount} / ${allCount}`;
+  
+  trashCount.textContent = trashListArray.length;
+
+  // Render Main List
+  todoList.innerHTML = '';
+  if (filteredList.length === 0) {
+    emptyState.classList.add('show');
+  } else {
+    emptyState.classList.remove('show');
+    
+    filteredList.forEach(todo => {
+      const li = document.createElement('li');
+      li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+      li.dataset.id = todo.id;
+      // Make item draggable
+      li.draggable = true;
+      
+      // Drag events
+      li.addEventListener('dragstart', handleDragStart);
+      li.addEventListener('dragenter', handleDragEnter);
+      li.addEventListener('dragover', handleDragOver);
+      li.addEventListener('dragleave', handleDragLeave);
+      li.addEventListener('drop', handleDrop);
+      li.addEventListener('dragend', handleDragEnd);
+
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'todo-content';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'todo-checkbox';
+      checkbox.checked = todo.completed;
+      checkbox.addEventListener('change', () => toggleTodo(todo.id));
+
+      const typeBadge = document.createElement('span');
+      typeBadge.className = `item-badge ${todo.type}`;
+      typeBadge.textContent = todo.type === 'task' ? 'T' : 'I';
+      typeBadge.title = todo.type === 'task' ? '작업 (Task)' : '물품 (Item)';
+
+      const textSpan = document.createElement('span');
+      textSpan.className = 'todo-text';
+      textSpan.textContent = todo.text;
+      textSpan.title = '더블클릭하여 수정';
+      // Inline edit
+      textSpan.addEventListener('dblclick', () => startInlineEdit(todo.id, textSpan));
+      // For mobile: simple click can also trigger edit if they touch it exactly
+      // But double tap is safer on mobile to prevent accidental edits while dragging.
+
+      contentDiv.appendChild(checkbox);
+      contentDiv.appendChild(typeBadge);
+      contentDiv.appendChild(textSpan);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'delete-btn';
+      delBtn.title = '휴지통으로 이동';
+      delBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
+      delBtn.addEventListener('click', () => moveToTrash(todo.id));
+
+      li.appendChild(contentDiv);
+      li.appendChild(delBtn);
+      
+      if (!useAnimation) {
+        li.classList.add('item-enter'); // Initial enter animation
+      }
+      
+      todoList.appendChild(li);
+    });
+  }
+  
+  if (useAnimation) {
+    animateFLIP(todoList, oldPositions);
+  }
+
+  // Render Trash List
+  renderTrashList(trashListArray);
+}
+
+function renderTrashList(trashListArray) {
+  trashList.innerHTML = '';
+  if (trashListArray.length === 0) {
+    trashEmptyState.classList.add('show');
+    emptyTrashBtn.style.display = 'none';
+  } else {
+    trashEmptyState.classList.remove('show');
+    emptyTrashBtn.style.display = 'block';
+    
+    trashListArray.forEach(todo => {
+      const li = document.createElement('li');
+      li.className = 'trash-item item-enter';
+      
+      const textSpan = document.createElement('span');
+      textSpan.className = 'trash-text';
+      const badgePrefix = todo.type === 'item' ? '[I] ' : '[T] ';
+      textSpan.textContent = badgePrefix + todo.text;
+      
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'trash-actions';
+      
+      const restoreBtn = document.createElement('button');
+      restoreBtn.className = 'action-btn restore';
+      restoreBtn.textContent = '복구';
+      restoreBtn.addEventListener('click', () => restoreFromTrash(todo.id));
+      
+      const permDelBtn = document.createElement('button');
+      permDelBtn.className = 'action-btn permanent-delete';
+      permDelBtn.textContent = '영구 삭제';
+      permDelBtn.addEventListener('click', () => permanentlyDelete(todo.id));
+      
+      actionsDiv.appendChild(restoreBtn);
+      actionsDiv.appendChild(permDelBtn);
+      
+      li.appendChild(textSpan);
+      li.appendChild(actionsDiv);
+      trashList.appendChild(li);
+    });
+  }
+}
+
+/* ================================
+   FLIP Animation Logic
+================================ */
+function recordPositions(container) {
+  const positions = {};
+  const children = Array.from(container.children);
+  children.forEach(child => {
+    if (child.dataset.id) {
+      positions[child.dataset.id] = child.getBoundingClientRect().top;
+    }
+  });
+  return positions;
+}
+
+function animateFLIP(container, oldPositions) {
+  const children = Array.from(container.children);
+  
+  children.forEach(child => {
+    const id = child.dataset.id;
+    if (id && oldPositions[id] !== undefined) {
+      const oldY = oldPositions[id];
+      const newY = child.getBoundingClientRect().top;
+      const deltaY = oldY - newY;
+      
+      if (deltaY !== 0) {
+        // Invert
+        child.style.transform = `translateY(${deltaY}px)`;
+        child.style.transition = 'transform 0s';
+        
+        // Play
+        requestAnimationFrame(() => {
+          child.style.transform = '';
+          child.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+        });
+      }
+    } else if (id) {
+      // New item entering during animation
+      child.classList.add('item-enter');
+    }
+  });
+}
+
+/* ================================
+   Custom Modal Logic
+================================ */
+function showModal(title, desc, isDestructive, onConfirm) {
+  modalTitle.textContent = title;
+  modalDesc.textContent = desc;
+  
+  if (isDestructive) {
+    modalConfirmBtn.classList.add('destructive');
+  } else {
+    modalConfirmBtn.classList.remove('destructive');
+  }
+  
+  modalCallback = onConfirm;
+  confirmModal.classList.add('show');
+}
+
+function closeModal() {
+  confirmModal.classList.remove('show');
+  modalCallback = null;
+}
+
+modalConfirmBtn.addEventListener('click', () => {
+  if (modalCallback) modalCallback();
+  closeModal();
+});
+
+// Start app
+init();

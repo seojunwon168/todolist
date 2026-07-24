@@ -1,6 +1,7 @@
 :root {
   /* Ultra-Minimalist Monochrome Palette */
   --bg-page: #ffffff;
+  --bg-sidebar: #fafafa;
   --text-main: #111111;
   --text-secondary: #555555;
   --text-muted: #888888;
@@ -12,8 +13,8 @@
   --border-hover: #cccccc;
   --border-dark: #111111;
   
-  --bg-hover: #fafafa;
-  --bg-active: #f3f3f3;
+  --bg-hover: #f5f5f5;
+  --bg-active: #eaeaea;
   --bg-input: #ffffff;
   
   --radius-sm: 4px;
@@ -21,6 +22,8 @@
   
   --transition-fast: 0.15s ease;
   --transition-normal: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  --sidebar-width: 240px;
 }
 
 * {
@@ -35,18 +38,146 @@ body {
   color: var(--text-main);
   min-height: 100vh;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 4rem 1.5rem;
+  overflow-x: hidden;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
+/* Sidebar Layout */
+.sidebar {
+  width: var(--sidebar-width);
+  height: 100vh;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-main);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 50;
+  transition: transform var(--transition-normal);
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1.25rem 1rem;
+}
+
+.sidebar-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.add-folder-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  padding: 0.2rem;
+  transition: all var(--transition-fast);
+}
+
+.add-folder-btn:hover {
+  color: var(--text-main);
+  background-color: var(--border-light);
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0.75rem 1.5rem;
+}
+
+.folder-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.folder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.folder-item:hover {
+  background-color: var(--border-light);
+  color: var(--text-main);
+}
+
+.folder-item.active {
+  background-color: var(--bg-active);
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.folder-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Edit Folder Input */
+.folder-edit-input {
+  width: 100%;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem 0.4rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  outline: none;
+}
+
+/* Sidebar Delete Button */
+.folder-delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--transition-fast);
+  display: flex;
+  padding: 0.2rem;
+  border-radius: var(--radius-sm);
+}
+
+.folder-item:hover .folder-delete-btn {
+  opacity: 1;
+}
+
+.folder-delete-btn:hover {
+  color: #ef4444;
+  background-color: #fee2e2;
+}
+
 /* App Container */
 .app-container {
-  width: 100%;
-  max-width: 540px;
-  background: var(--bg-page);
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  padding: 3.5rem 2.5rem;
+  max-width: 720px; /* limits width for readability */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left var(--transition-normal);
 }
 
 /* Header */
@@ -57,15 +188,30 @@ body {
 .header-top {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   border-bottom: 1px solid var(--border-main);
   padding-bottom: 0.85rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mobile-menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+  padding: 0.25rem;
 }
 
 .app-title {
   font-size: 1.35rem;
   font-weight: 600;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   color: var(--text-main);
 }
 
@@ -83,6 +229,32 @@ body {
 .todo-form {
   display: flex;
   gap: 0.5rem;
+}
+
+.type-toggle-btn {
+  flex-shrink: 0;
+  padding: 0 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border-main);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.type-toggle-btn:hover {
+  background-color: var(--border-light);
+  color: var(--text-main);
+}
+
+/* Item Type Toggle States */
+.type-toggle-btn[data-type="item"] {
+  background-color: var(--text-main);
+  color: #ffffff;
+  border-color: var(--text-main);
 }
 
 .todo-input {
@@ -193,7 +365,7 @@ body {
   flex-direction: column;
 }
 
-/* Todo Item Row (Linear / Notion Style) */
+/* Todo Item Row */
 .todo-item {
   display: flex;
   align-items: center;
@@ -203,10 +375,25 @@ body {
   border-radius: var(--radius-sm);
   transition: background-color var(--transition-fast), transform var(--transition-normal);
   will-change: transform;
+  cursor: grab; /* Indicates draggable */
 }
 
 .todo-item:hover {
   background-color: var(--bg-hover);
+}
+
+.todo-item:active {
+  cursor: grabbing;
+}
+
+.todo-item.dragging {
+  opacity: 0.4;
+  background-color: var(--bg-active);
+  border: 1px dashed var(--border-dark);
+}
+
+.todo-item.drag-over {
+  border-top: 2px solid var(--border-dark);
 }
 
 .todo-item.completed {
@@ -219,7 +406,6 @@ body {
   gap: 0.75rem;
   flex: 1;
   min-width: 0;
-  cursor: pointer;
 }
 
 /* Minimalist Checkbox */
@@ -258,18 +444,53 @@ body {
   transform: scale(1);
 }
 
-/* Todo Text */
+/* Item Type Badge */
+.item-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--border-main);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  background-color: var(--bg-page);
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.item-badge.item {
+  background-color: var(--text-main);
+  color: #ffffff;
+  border-color: var(--text-main);
+}
+
+/* Todo Text & Inline Editing */
 .todo-text {
   font-size: 0.9rem;
   color: var(--text-main);
   word-break: break-word;
   transition: color var(--transition-fast);
+  cursor: text;
+  flex: 1;
+  padding: 0.2rem 0; /* consistent height */
 }
 
 .todo-item.completed .todo-text {
   color: var(--text-completed);
   text-decoration: line-through;
   text-decoration-color: var(--text-completed);
+}
+
+.todo-edit-input {
+  flex: 1;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text-main);
+  background: var(--bg-page);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  padding: 0.15rem 0.35rem;
+  outline: none;
 }
 
 /* Delete Button (Trash Icon / Text) */
@@ -534,7 +755,7 @@ body {
   border-color: #b91c1c;
 }
 
-/* Animations for item entry/leave */
+/* Animations for item entry */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -544,13 +765,45 @@ body {
   animation: fadeIn 0.2s ease forwards;
 }
 
+/* Mobile Sidebar Overlay */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(17, 17, 17, 0.4);
+  z-index: 40;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
 /* Responsive */
-@media (max-width: 600px) {
-  body {
-    padding: 2rem 1rem;
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
   }
-  
-  .todo-item:hover .delete-btn {
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay.show {
+    display: block;
     opacity: 1;
+  }
+
+  .app-container {
+    margin-left: 0;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .mobile-menu-btn {
+    display: block;
+  }
+
+  .todo-item:hover .delete-btn {
+    opacity: 1; /* Always show delete on mobile or handle via touch */
   }
 }
