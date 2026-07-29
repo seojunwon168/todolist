@@ -41,25 +41,50 @@ const naverLoginBtn = document.getElementById('naverLoginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 
 authForm?.addEventListener('submit', (e) => {
-  e.preventDefault(); // Default to login on enter
+  e.preventDefault(); // 기본 새로고침 방지
   const email = emailInput.value.trim();
   const password = passwordInput.value.trim();
-  if (!email || !password || !auth) return;
+  
+  if (!email || !password || !auth) {
+    alert('이메일과 비밀번호를 모두 입력해 주세요.');
+    return;
+  }
   
   auth.signInWithEmailAndPassword(email, password)
     .catch(error => {
-      alert('로그인 실패: ' + error.message);
+      console.error(error);
+      alert('로그인 실패:\n' + error.message);
     });
 });
 
-signupBtn?.addEventListener('click', () => {
+signupBtn?.addEventListener('click', (e) => {
+  e.preventDefault(); // 기본 새로고침 방지
   const email = emailInput.value.trim();
   const password = passwordInput.value.trim();
-  if (!email || !password || !auth) return;
+  
+  if (!email || !password || !auth) {
+    alert('이메일과 비밀번호를 모두 입력해 주세요.');
+    return;
+  }
+  
+  if (password.length < 6) {
+    alert('비밀번호는 최소 6자리 이상이어야 합니다.');
+    return;
+  }
   
   auth.createUserWithEmailAndPassword(email, password)
+    .then(() => {
+      // 성공 시 onAuthStateChanged 리스너가 알아서 화면을 전환함
+    })
     .catch(error => {
-      alert('가입 실패: ' + error.message);
+      console.error(error);
+      if (error.code === 'auth/email-already-in-use') {
+        alert('가입 실패:\n이미 사용 중인 이메일 계정입니다.');
+      } else if (error.code === 'auth/invalid-email') {
+        alert('가입 실패:\n유효하지 않은 이메일 형식입니다.');
+      } else {
+        alert('가입 실패:\n' + error.message);
+      }
     });
 });
 
