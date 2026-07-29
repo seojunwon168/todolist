@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tasks — 초미니멀리즘 할 일 목록</title>
+  <title>Tasks ??초�??��?리즘 ????목록</title>
   
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,60 +19,59 @@
 </head>
 <body>
   
-  <!-- ========== 로그인/회원가입 화면 영역 ========== -->
+  <!-- ========== 로그???�원가???�면 ?�역 ========== -->
   <section id="loginContainer" class="login-container">
     
-    <!-- 로그인 뷰 -->
+    <!-- 로그??�?-->
     <div id="loginView" class="login-card">
       <h1 class="login-title">Tasks</h1>
-      <p class="login-subtitle">로그인하여 데이터를 동기화하세요</p>
+      <p class="login-subtitle">로그?�하???�이?��? ?�기?�하?�요</p>
       
       <form id="authForm" class="auth-form">
-        <input type="email" id="emailInput" class="auth-input" placeholder="이메일" required autocomplete="username">
+        <input type="email" id="emailInput" class="auth-input" placeholder="?�메?? required autocomplete="username">
         
         <div class="password-wrapper">
-          <input type="password" id="passwordInput" class="auth-input" placeholder="비밀번호" required autocomplete="current-password">
+          <input type="password" id="passwordInput" class="auth-input" placeholder="비�?번호" required autocomplete="current-password">
           <button type="button" class="pw-toggle-btn" tabindex="-1">보기</button>
         </div>
         
         <div class="auth-actions">
-          <button type="submit" id="loginBtn" class="auth-btn primary">로그인</button>
-          <button type="button" id="goToSignupBtn" class="auth-btn secondary">회원가입 하기</button>
+          <button type="submit" id="loginBtn" class="auth-btn primary">로그??/button>
+          <button type="button" id="goToSignupBtn" class="auth-btn secondary">?�원가???�기</button>
         </div>
       </form>
 
       <div class="auth-divider">
-        <span>또는</span>
+        <span>?�는</span>
       </div>
 
       <div class="social-login-area">
         <button type="button" id="naverLoginBtn" class="social-btn naver">
-          N 네이버 로그인
-        </button>
+          N ?�이�?로그??        </button>
       </div>
     </div>
 
-    <!-- 회원가입 뷰 -->
+    <!-- ?�원가??�?-->
     <div id="signupView" class="login-card" style="display: none;">
-      <h1 class="login-title">Tasks 회원가입</h1>
-      <p class="login-subtitle">새로운 계정을 만듭니다</p>
+      <h1 class="login-title">Tasks ?�원가??/h1>
+      <p class="login-subtitle">?�로??계정??만듭?�다</p>
       
       <form id="signupForm" class="auth-form">
-        <input type="email" id="signupEmailInput" class="auth-input" placeholder="이메일" required autocomplete="username">
+        <input type="email" id="signupEmailInput" class="auth-input" placeholder="?�메?? required autocomplete="username">
         
         <div class="password-wrapper">
-          <input type="password" id="signupPasswordInput" class="auth-input" placeholder="비밀번호 (6자리 이상)" required autocomplete="new-password">
+          <input type="password" id="signupPasswordInput" class="auth-input" placeholder="비�?번호 (6?�리 ?�상)" required autocomplete="new-password">
           <button type="button" class="pw-toggle-btn" tabindex="-1">보기</button>
         </div>
 
         <div class="password-wrapper">
-          <input type="password" id="signupPasswordConfirmInput" class="auth-input" placeholder="비밀번호 확인" required autocomplete="new-password">
+          <input type="password" id="signupPasswordConfirmInput" class="auth-input" placeholder="비�?번호 ?�인" required autocomplete="new-password">
           <button type="button" class="pw-toggle-btn" tabindex="-1">보기</button>
         </div>
         
         <div class="auth-actions">
-          <button type="submit" id="signupSubmitBtn" class="auth-btn primary">가입 완료</button>
-          <button type="button" id="goToLoginBtn" class="auth-btn secondary cancel-btn-style">로그인으로 돌아가기</button>
+          <button type="submit" id="signupSubmitBtn" class="auth-btn primary">가???�료</button>
+          <button type="button" id="goToLoginBtn" class="auth-btn secondary cancel-btn-style">로그?�으�??�아가�?/button>
         </div>
       </form>
     </div>
@@ -80,43 +79,43 @@
   </section>
 
 
-  <!-- ========== 메인 애플리케이션 영역 (로그인 시 노출) ========== -->
+  <!-- ========== 메인 ?�플리�??�션 ?�역 (로그?????�출) ========== -->
   <div id="appContainer" class="app-wrapper" style="display: none;">
-    <!-- 모바일 사이드바 배경 오버레이 -->
+    <!-- 모바???�이?�바 배경 ?�버?�이 -->
     <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
-    <!-- 좌측 사이드바 (폴더 관리) -->
+    <!-- 좌측 ?�이?�바 (?�더 관�? -->
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <h2 class="sidebar-title">Projects</h2>
-        <button type="button" id="addFolderBtn" class="add-folder-btn" title="새 폴더 추가">
+        <button type="button" id="addFolderBtn" class="add-folder-btn" title="???�더 추�?">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
         </button>
       </div>
       
       <div class="sidebar-content">
         <ul id="folderList" class="folder-list">
-          <!-- 폴더 항목들이 여기에 렌더링됩니다 -->
+          <!-- ?�더 ??��?�이 ?�기???�더링됩?�다 -->
         </ul>
       </div>
 
       <div class="sidebar-footer">
         <button type="button" id="logoutBtn" class="logout-btn">
-          로그아웃
+          로그?�웃
         </button>
       </div>
     </aside>
 
-    <!-- 메인 콘텐츠 영역 -->
+    <!-- 메인 콘텐�??�역 -->
     <main class="app-content">
       <header class="app-header">
         <div class="header-top">
           <div class="header-left">
-            <!-- 모바일 사이드바 토글 버튼 -->
-            <button type="button" id="mobileMenuBtn" class="mobile-menu-btn" aria-label="메뉴 열기">
+            <!-- 모바???�이?�바 ?��? 버튼 -->
+            <button type="button" id="mobileMenuBtn" class="mobile-menu-btn" aria-label="메뉴 ?�기">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
             </button>
-            <h1 class="app-title editable-title" id="currentFolderTitle" title="클릭하여 프로젝트 이름 수정">Tasks</h1>
+            <h1 class="app-title editable-title" id="currentFolderTitle" title="?�릭?�여 ?�로?�트 ?�름 ?�정">Tasks</h1>
           </div>
           <span class="stats-badge" id="statsText">0 / 0</span>
         </div>
@@ -124,54 +123,53 @@
 
       <section class="input-section">
         <form id="todoForm" class="todo-form">
-          <button type="button" id="typeToggleBtn" class="type-toggle-btn" data-type="task" title="유형 변경">
+          <button type="button" id="typeToggleBtn" class="type-toggle-btn" data-type="task" title="?�형 변�?>
             Task
           </button>
           <input 
             type="text" 
             id="todoInput" 
             class="todo-input" 
-            placeholder="새로운 할 일을 입력하세요..." 
+            placeholder="?�로?????�을 ?�력?�세??.." 
             autocomplete="off"
             autofocus
           >
-          <button type="submit" class="add-btn" aria-label="할 일 추가">추가</button>
+          <button type="submit" class="add-btn" aria-label="????추�?">추�?</button>
         </form>
       </section>
 
       <section class="controls-section">
         <div class="filter-tabs">
-          <button class="filter-btn active" data-filter="all">전체 <span id="badgeAll">0</span></button>
-          <button class="filter-btn" data-filter="active">진행 중 <span id="badgeActive">0</span></button>
-          <button class="filter-btn" data-filter="completed">완료됨 <span id="badgeCompleted">0</span></button>
+          <button class="filter-btn active" data-filter="all">?�체 <span id="badgeAll">0</span></button>
+          <button class="filter-btn" data-filter="active">진행 �?<span id="badgeActive">0</span></button>
+          <button class="filter-btn" data-filter="completed">?�료??<span id="badgeCompleted">0</span></button>
         </div>
-        <span class="sort-notice">자동 정렬됨</span>
+        <span class="sort-notice">?�동 ?�렬??/span>
       </section>
 
-      <!-- 메인 할 일 리스트 영역 -->
+      <!-- 메인 ????리스???�역 -->
       <section class="list-section">
         <div id="emptyState" class="empty-state">
-          <p>등록된 항목이 없습니다.</p>
+          <p>?�록????��???�습?�다.</p>
         </div>
         <ul id="todoList" class="todo-list"></ul>
       </section>
 
-      <!-- 휴지통 영역 (아코디언) -->
+      <!-- ?��????�역 (?�코?�언) -->
       <section class="trash-section">
         <div class="trash-header" id="trashToggle">
           <div class="trash-title-area">
             <svg class="chevron-icon" id="trashChevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-            <span class="trash-title">휴지통</span>
+            <span class="trash-title">?��???/span>
             <span class="trash-count" id="trashCount">0</span>
           </div>
-          <button type="button" class="empty-trash-btn" id="emptyTrashBtn" title="휴지통 전체 비우기">
-            휴지통 비우기
-          </button>
+          <button type="button" class="empty-trash-btn" id="emptyTrashBtn" title="?��????�체 비우�?>
+            ?��???비우�?          </button>
         </div>
 
         <div class="trash-body" id="trashBody">
           <div id="trashEmptyState" class="trash-empty-state">
-            <p>휴지통이 비어 있습니다.</p>
+            <p>?��??�이 비어 ?�습?�다.</p>
           </div>
           <ul id="trashList" class="trash-list"></ul>
         </div>
@@ -179,19 +177,19 @@
     </main>
   </div>
 
-  <!-- 커스텀 확인 모달 -->
+  <!-- 커스?� ?�인 모달 -->
   <div id="confirmModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDesc">
     <div class="modal-card">
-      <h3 id="modalTitle" class="modal-title">확인</h3>
-      <p id="modalDesc" class="modal-desc">정말 진행하시겠습니까?</p>
+      <h3 id="modalTitle" class="modal-title">?�인</h3>
+      <p id="modalDesc" class="modal-desc">?�말 진행?�시겠습?�까?</p>
       <div class="modal-actions">
         <button type="button" id="modalCancelBtn" class="modal-btn cancel-btn">취소</button>
-        <button type="button" id="modalConfirmBtn" class="modal-btn confirm-btn">확인</button>
+        <button type="button" id="modalConfirmBtn" class="modal-btn confirm-btn">?�인</button>
       </div>
     </div>
   </div>
 
-  <!-- Firebase 설정 템플릿 (나중에 값 채워 넣기) -->
+  <!-- Firebase ?�정 ?�플�?(?�중??�?채워 ?�기) -->
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyBxVG6qEDAu6_eS3sS7ebFCpEgNmQIYO2Y",
@@ -202,12 +200,11 @@
       appId: "1:734866646256:web:3a2248cd5e6252f48cce35"
     };
     
-    // Config가 채워져 있을 때만 초기화
-    if (firebaseConfig.apiKey) {
+    // Config가 채워???�을 ?�만 초기??    if (firebaseConfig.apiKey) {
       firebase.initializeApp(firebaseConfig);
     }
   </script>
   
-  <script src="script.js"></script>
+  <script src="script.js?v=999"></script>
 </body>
 </html>
