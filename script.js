@@ -14,12 +14,16 @@ let currentUser = null;
 let unsubscribeFolders = null;
 let unsubscribeTodos = null;
 
+let isSigningUp = false; // 회원가입 자동로그인 방지 플래그
+
 // The config will be empty by default, wait for user to fill it in index.html
 if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
   auth = firebase.auth();
   db = firebase.firestore();
   
   auth.onAuthStateChanged(user => {
+    if (isSigningUp) return; // 가입 진행 중일 땐 리스너 강제 무시
+    
     if (user) {
       currentUser = user;
       document.getElementById('loginContainer').style.display = 'none';
@@ -29,6 +33,9 @@ if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
       currentUser = null;
       document.getElementById('loginContainer').style.display = 'flex';
       document.getElementById('appContainer').style.display = 'none';
+      // 로그아웃 시엔 기본 로그인 뷰를 노출
+      document.getElementById('loginView').style.display = 'block';
+      document.getElementById('signupView').style.display = 'none';
       clearLocalData();
     }
   });
@@ -42,11 +49,45 @@ if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
 const authForm = document.getElementById('authForm');
 const emailInput = document.getElementById('emailInput');
 const passwordInput = document.getElementById('passwordInput');
-const loginBtn = document.getElementById('loginBtn');
-const signupBtn = document.getElementById('signupBtn');
+
+const signupForm = document.getElementById('signupForm');
+const signupEmailInput = document.getElementById('signupEmailInput');
+const signupPasswordInput = document.getElementById('signupPasswordInput');
+const signupPasswordConfirmInput = document.getElementById('signupPasswordConfirmInput');
+
+const goToSignupBtn = document.getElementById('goToSignupBtn');
+const goToLoginBtn = document.getElementById('goToLoginBtn');
+const loginView = document.getElementById('loginView');
+const signupView = document.getElementById('signupView');
+
 const naverLoginBtn = document.getElementById('naverLoginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 
+// --- 뷰 전환 로직 ---
+goToSignupBtn?.addEventListener('click', () => {
+  loginView.style.display = 'none';
+  signupView.style.display = 'block';
+});
+goToLoginBtn?.addEventListener('click', () => {
+  signupView.style.display = 'none';
+  loginView.style.display = 'block';
+});
+
+// --- 비밀번호 토글 로직 ---
+document.querySelectorAll('.pw-toggle-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const input = e.target.previousElementSibling;
+    if (input.type === 'password') {
+      input.type = 'text';
+      e.target.textContent = '숨기기';
+    } else {
+      input.type = 'password';
+      e.target.textContent = '보기';
+    }
+  });
+});
+
+// --- 로그인 로직 ---
 authForm?.addEventListener('submit', (e) => {
   e.preventDefault(); // 기본 새로고침 방지
   const email = emailInput.value.trim();
@@ -58,10 +99,6 @@ authForm?.addEventListener('submit', (e) => {
   }
   
   auth.signInWithEmailAndPassword(email, password)
-    .then((userCredential) => {
-      alert('✅ 성공적으로 로그인되었습니다!\n(파이어베이스가 화면을 전환합니다.)');
-      // 화면 전환은 onAuthStateChanged 리스너가 담당하므로 여기서 아무것도 하지 않음
-    })
     .catch(error => {
       console.error(error);
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -72,13 +109,15 @@ authForm?.addEventListener('submit', (e) => {
     });
 });
 
-signupBtn?.addEventListener('click', (e) => {
+// --- 회원가입 로직 ---
+signupForm?.addEventListener('submit', (e) => {
   e.preventDefault(); // 기본 새로고침 방지
-  const email = emailInput.value.trim();
-  const password = passwordInput.value.trim();
+  const email = signupEmailInput.value.trim();
+  const password = signupPasswordInput.value.trim();
+  const passwordConfirm = signupPasswordConfirmInput.value.trim();
   
-  if (!email || !password || !auth) {
-    alert('이메일과 비밀번호를 모두 입력해 주세요.');
+  if (!email || !password || !passwordConfirm || !auth) {
+    alert('모든 항목을 입력해 주세요.');
     return;
   }
   
@@ -86,13 +125,30 @@ signupBtn?.addEventListener('click', (e) => {
     alert('비밀번호는 최소 6자리 이상이어야 합니다.');
     return;
   }
+
+  if (password !== passwordConfirm) {
+    alert('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+    return;
+  }
+  
+  isSigningUp = true; // 깜빡임 방지 플래그 On
   
   auth.createUserWithEmailAndPassword(email, password)
-    .then((userCredential) => {
-      alert('✅ 회원가입 완료 및 자동 로그인되었습니다!\n(파이어베이스가 화면을 전환합니다.)');
-      // 화면 전환은 onAuthStateChanged 리스너가 담당하므로 여기서 아무것도 하지 않음
+    .then(() => {
+      // 가입 성공 시 즉각 강제 로그아웃
+      return auth.signOut();
+    })
+    .then(() => {
+      isSigningUp = false; // 플래그 Off
+      alert('✅ 회원가입이 완료되었습니다. 로그인해 주세요.');
+      
+      // 폼 초기화 및 로그인 뷰로 이동
+      signupForm.reset();
+      signupView.style.display = 'none';
+      loginView.style.display = 'block';
     })
     .catch(error => {
+      isSigningUp = false; // 에러 시에도 플래그 Off
       console.error(error);
       if (error.code === 'auth/email-already-in-use') {
         alert('❌ 가입 실패:\n이미 사용 중인 이메일 계정입니다.');

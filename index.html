@@ -19,19 +19,25 @@
 </head>
 <body>
   
-  <!-- ========== 로그인 화면 영역 ========== -->
+  <!-- ========== 로그인/회원가입 화면 영역 ========== -->
   <section id="loginContainer" class="login-container">
-    <div class="login-card">
+    
+    <!-- 로그인 뷰 -->
+    <div id="loginView" class="login-card">
       <h1 class="login-title">Tasks</h1>
       <p class="login-subtitle">로그인하여 데이터를 동기화하세요</p>
       
       <form id="authForm" class="auth-form">
         <input type="email" id="emailInput" class="auth-input" placeholder="이메일" required autocomplete="username">
-        <input type="password" id="passwordInput" class="auth-input" placeholder="비밀번호" required autocomplete="current-password">
+        
+        <div class="password-wrapper">
+          <input type="password" id="passwordInput" class="auth-input" placeholder="비밀번호" required autocomplete="current-password">
+          <button type="button" class="pw-toggle-btn" tabindex="-1">보기</button>
+        </div>
         
         <div class="auth-actions">
           <button type="submit" id="loginBtn" class="auth-btn primary">로그인</button>
-          <button type="button" id="signupBtn" class="auth-btn secondary">회원가입</button>
+          <button type="button" id="goToSignupBtn" class="auth-btn secondary">회원가입 하기</button>
         </div>
       </form>
 
@@ -40,12 +46,37 @@
       </div>
 
       <div class="social-login-area">
-        <!-- 소셜 로그인 뼈대 (추후 API 연동 필요) -->
         <button type="button" id="naverLoginBtn" class="social-btn naver">
           N 네이버 로그인
         </button>
       </div>
     </div>
+
+    <!-- 회원가입 뷰 -->
+    <div id="signupView" class="login-card" style="display: none;">
+      <h1 class="login-title">Tasks 회원가입</h1>
+      <p class="login-subtitle">새로운 계정을 만듭니다</p>
+      
+      <form id="signupForm" class="auth-form">
+        <input type="email" id="signupEmailInput" class="auth-input" placeholder="이메일" required autocomplete="username">
+        
+        <div class="password-wrapper">
+          <input type="password" id="signupPasswordInput" class="auth-input" placeholder="비밀번호 (6자리 이상)" required autocomplete="new-password">
+          <button type="button" class="pw-toggle-btn" tabindex="-1">보기</button>
+        </div>
+
+        <div class="password-wrapper">
+          <input type="password" id="signupPasswordConfirmInput" class="auth-input" placeholder="비밀번호 확인" required autocomplete="new-password">
+          <button type="button" class="pw-toggle-btn" tabindex="-1">보기</button>
+        </div>
+        
+        <div class="auth-actions">
+          <button type="submit" id="signupSubmitBtn" class="auth-btn primary">가입 완료</button>
+          <button type="button" id="goToLoginBtn" class="auth-btn secondary cancel-btn-style">로그인으로 돌아가기</button>
+        </div>
+      </form>
+    </div>
+
   </section>
 
 

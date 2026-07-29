@@ -101,6 +101,33 @@ body {
   border-color: var(--border-dark);
 }
 
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrapper .auth-input {
+  padding-right: 3.5rem; /* 버튼을 위한 여백 */
+}
+
+.pw-toggle-btn {
+  position: absolute;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-light);
+  cursor: pointer;
+  padding: 0.2rem;
+  transition: color var(--transition-fast);
+}
+
+.pw-toggle-btn:hover {
+  color: var(--text-main);
+}
+
 .auth-actions {
   display: flex;
   flex-direction: column;
