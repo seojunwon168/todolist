@@ -1,3 +1,10 @@
+// 과거 버전의 로컬 스토리지 찌꺼기 강제 초기화 (충돌 방지)
+try {
+  localStorage.clear();
+} catch (e) {
+  console.warn('localStorage clear failed', e);
+}
+
 // ==========================================
 // 1. Firebase Initialization & Auth state
 // ==========================================
@@ -51,9 +58,17 @@ authForm?.addEventListener('submit', (e) => {
   }
   
   auth.signInWithEmailAndPassword(email, password)
+    .then((userCredential) => {
+      alert('✅ 성공적으로 로그인되었습니다!\n(파이어베이스가 화면을 전환합니다.)');
+      // 화면 전환은 onAuthStateChanged 리스너가 담당하므로 여기서 아무것도 하지 않음
+    })
     .catch(error => {
       console.error(error);
-      alert('로그인 실패:\n' + error.message);
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+         alert('❌ 로그인 실패:\n이메일 또는 비밀번호가 일치하지 않습니다.');
+      } else {
+         alert('❌ 로그인 실패:\n' + error.message);
+      }
     });
 });
 
@@ -73,17 +88,18 @@ signupBtn?.addEventListener('click', (e) => {
   }
   
   auth.createUserWithEmailAndPassword(email, password)
-    .then(() => {
-      // 성공 시 onAuthStateChanged 리스너가 알아서 화면을 전환함
+    .then((userCredential) => {
+      alert('✅ 회원가입 완료 및 자동 로그인되었습니다!\n(파이어베이스가 화면을 전환합니다.)');
+      // 화면 전환은 onAuthStateChanged 리스너가 담당하므로 여기서 아무것도 하지 않음
     })
     .catch(error => {
       console.error(error);
       if (error.code === 'auth/email-already-in-use') {
-        alert('가입 실패:\n이미 사용 중인 이메일 계정입니다.');
+        alert('❌ 가입 실패:\n이미 사용 중인 이메일 계정입니다.');
       } else if (error.code === 'auth/invalid-email') {
-        alert('가입 실패:\n유효하지 않은 이메일 형식입니다.');
+        alert('❌ 가입 실패:\n유효하지 않은 이메일 형식입니다.');
       } else {
-        alert('가입 실패:\n' + error.message);
+        alert('❌ 가입 실패:\n' + error.message);
       }
     });
 });
