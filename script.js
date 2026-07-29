@@ -663,18 +663,28 @@ function startFolderEdit(id, liElement, textSpan) {
   input.focus();
   input.select();
   
+  let isSaved = false;
+  
   const saveAction = () => {
+    if (isSaved) return;
+    isSaved = true;
+    
     const newName = input.value.trim() || currentName;
+    textSpan.textContent = newName;
+    // UI 즉각 반영
+    if (input.parentNode) liElement.replaceChild(textSpan, input);
+    
+    // 비동기 파이어베이스 동기화
     saveFolderName(id, newName);
-    // Realtime listener will handle re-render
   };
   
   input.addEventListener('blur', saveAction);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') saveAction();
     if (e.key === 'Escape') {
-      input.value = currentName;
-      saveAction();
+      isSaved = true;
+      textSpan.textContent = currentName;
+      if (input.parentNode) liElement.replaceChild(textSpan, input);
     }
   });
 }
@@ -691,21 +701,34 @@ function startInlineEdit(id, textElement, originalText) {
   const length = input.value.length;
   input.setSelectionRange(length, length);
   
+  let isSaved = false;
+  
   const saveAction = () => {
+    if (isSaved) return;
+    isSaved = true;
+    
     const newText = input.value.trim();
-    if (newText) {
-      saveTodoText(id, newText);
-    } else {
-      saveTodoText(id, originalText); // Revert if empty
+    const finalText = newText ? newText : originalText;
+    
+    // UI 즉각 반영 (빠른 피드백)
+    textElement.textContent = finalText;
+    if (input.parentNode) {
+      input.parentNode.replaceChild(textElement, input);
     }
+    
+    // 비동기 파이어베이스 저장 (배경 처리)
+    saveTodoText(id, finalText);
   };
   
   input.addEventListener('blur', saveAction);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') saveAction();
     if (e.key === 'Escape') {
-      input.value = originalText;
-      saveAction();
+      isSaved = true;
+      textElement.textContent = originalText;
+      if (input.parentNode) {
+        input.parentNode.replaceChild(textElement, input);
+      }
     }
   });
 }
