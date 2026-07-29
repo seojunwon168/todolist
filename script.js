@@ -27,6 +27,18 @@ if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
   auth = firebase.auth();
   db = firebase.firestore();
   
+  // 1. 방화벽/백신으로 인한 WebSocket 차단 우회 (Long-Polling 강제)
+  db.settings({
+    experimentalForceLongPolling: true,
+    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+  });
+
+  // 2. 오프라인(혹은 네트워크 무한 대기) 상태에서도 데이터가 증발하지 않도록 브라우저 DB에 영구 저장
+  db.enablePersistence()
+    .catch(function(err) {
+      console.warn('[Firestore] 오프라인 저장소 활성화 실패:', err);
+    });
+  
   auth.onAuthStateChanged(user => {
     if (isSigningUp) return; // 가입 진행 중일 땐 리스너 강제 무시
     
