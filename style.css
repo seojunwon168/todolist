@@ -432,6 +432,34 @@ body {
   color: var(--text-main);
 }
 
+.editable-title {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: 0.1rem 0.4rem;
+  margin-left: -0.4rem; /* 텍스트 정렬 유지 */
+  transition: background-color var(--transition-fast);
+}
+
+.editable-title:hover {
+  background-color: var(--border-light);
+}
+
+.folder-header-edit-input {
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+  font-family: inherit;
+  background: var(--bg-input);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  padding: 0.1rem 0.4rem;
+  margin-left: -0.4rem;
+  outline: none;
+  width: 100%;
+  max-width: 300px;
+}
+
 .stats-badge {
   font-size: 0.8rem;
   color: var(--text-muted);

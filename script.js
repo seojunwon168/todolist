@@ -322,6 +322,49 @@ emptyTrashBtn?.addEventListener('click', () => {
   showModal('휴지통 비우기', '휴지통을 모두 비우시겠습니까?\n이 작업은 되돌릴 수 없습니다.', true, emptyTrash);
 });
 
+currentFolderTitle?.addEventListener('click', () => {
+  const currentName = currentFolderTitle.textContent;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'folder-header-edit-input';
+  input.value = currentName;
+  
+  currentFolderTitle.parentNode.replaceChild(input, currentFolderTitle);
+  input.focus();
+  input.select();
+  
+  let isSaved = false;
+  
+  const saveAction = () => {
+    if (isSaved) return;
+    isSaved = true;
+    
+    const newName = input.value.trim();
+    if (!newName) {
+      alert('프로젝트 이름을 입력해 주세요.');
+      if (input.parentNode) input.parentNode.replaceChild(currentFolderTitle, input);
+      return;
+    }
+    
+    currentFolderTitle.textContent = newName;
+    if (input.parentNode) {
+      input.parentNode.replaceChild(currentFolderTitle, input);
+    }
+    
+    // 파이어베이스 Firestore 동기화 (기존 saveFolderName 재활용)
+    saveFolderName(activeFolderId, newName);
+  };
+  
+  input.addEventListener('blur', saveAction);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveAction();
+    if (e.key === 'Escape') {
+      isSaved = true;
+      if (input.parentNode) input.parentNode.replaceChild(currentFolderTitle, input);
+    }
+  });
+});
+
 modalCancelBtn?.addEventListener('click', closeModal);
 
 
