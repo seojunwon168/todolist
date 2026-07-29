@@ -195,8 +195,11 @@ function clearLocalData() {
 // 4. Firestore Realtime Listeners
 // ==========================================
 function setupFirestoreListeners(uid) {
+  console.log(`[Firestore] 로그인 확인됨. UID: ${uid} 데이터 동기화 시작...`);
+  
   // Listen to Folders
-  unsubscribeFolders = db.collection('users').doc(uid).collection('folders')
+  const foldersRef = db.collection('users').doc(uid).collection('folders');
+  unsubscribeFolders = foldersRef
     .orderBy('createdAt', 'asc')
     .onSnapshot(snapshot => {
       folders = [];
@@ -204,11 +207,18 @@ function setupFirestoreListeners(uid) {
         folders.push({ id: doc.id, ...doc.data() });
       });
       
-      // Default Inbox logic
+      console.log(`[Firestore] 폴더(프로젝트) ${folders.length}개 로드 완료.`, folders);
+      
+      // Default Inbox logic - 데이터가 하나도 없을 때만 생성하되, 혹시 모를 덮어쓰기를 방지하기 위해 merge: true 사용
       if (folders.length === 0) {
-        db.collection('users').doc(uid).collection('folders').doc('inbox').set({
+        console.warn(`[Firestore] 기존 폴더가 감지되지 않아 기본 Inbox를 생성합니다.`);
+        foldersRef.doc('inbox').set({
           name: 'Inbox',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true }).then(() => {
+          console.log(`[Firestore] Inbox 폴더 생성 성공.`);
+        }).catch(err => {
+          console.error(`[Firestore] Inbox 폴더 생성 실패:`, err);
         });
         return;
       }
@@ -220,19 +230,23 @@ function setupFirestoreListeners(uid) {
       renderFolders();
       renderTodos();
     }, err => {
-      console.error('Folder sync error:', err);
+      console.error('[Firestore] 폴더 동기화 에러! (혹시 인덱스 문제일 수 있습니다):', err);
     });
 
   // Listen to Todos
-  unsubscribeTodos = db.collection('users').doc(uid).collection('todos')
+  const todosRef = db.collection('users').doc(uid).collection('todos');
+  unsubscribeTodos = todosRef
     .onSnapshot(snapshot => {
       todos = [];
       snapshot.forEach(doc => {
         todos.push({ id: doc.id, ...doc.data() });
       });
+      
+      console.log(`[Firestore] 할 일(To-Do) ${todos.length}개 로드 완료.`, todos);
+      
       renderTodos(true); // use FLIP animation on realtime updates
     }, err => {
-      console.error('Todo sync error:', err);
+      console.error('[Firestore] 할 일 동기화 에러!:', err);
     });
 }
 
