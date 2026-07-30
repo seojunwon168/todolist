@@ -842,9 +842,10 @@ body {
 }
 
 .trash-section.open .trash-body {
-  max-height: 500px;
-  opacity: 1;
+  max-height: none !important;
+  opacity: 1 !important;
   margin-top: 0.5rem;
+  display: block !important;
 }
 
 /* Trash List Items */
