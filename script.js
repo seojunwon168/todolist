@@ -97,6 +97,16 @@ const badgeAll = document.getElementById('badgeAll');
 const badgeActive = document.getElementById('badgeActive');
 const badgeCompleted = document.getElementById('badgeCompleted');
 
+// Select Mode & Bulk Bar
+let isSelectMode = false;
+let selectedTodoIds = new Set();
+
+const toggleSelectModeBtn = document.getElementById('toggleSelectModeBtn');
+const bulkBar = document.getElementById('bulkBar');
+const bulkCompleteBtn = document.getElementById('bulkCompleteBtn');
+const bulkActiveBtn = document.getElementById('bulkActiveBtn');
+const resetAllCompletedBtn = document.getElementById('resetAllCompletedBtn');
+
 let currentTodoType = 'task';
 
 // ==========================================
@@ -421,11 +431,13 @@ function renderTodos(useAnimation = false) {
   const completedTodos = allActiveTodos.filter(t => t.completed);
   const inProgressTodos = allActiveTodos.filter(t => !t.completed);
   
-  // [수정6] 상단 필터 및 진행률 카운터(배지) 업데이트
+  // 상단 필터 및 진행률 카운터(배지) 업데이트
   if (badgeAll) badgeAll.textContent = allActiveTodos.length;
   if (badgeActive) badgeActive.textContent = inProgressTodos.length;
   if (badgeCompleted) badgeCompleted.textContent = completedTodos.length;
   if (statsText) statsText.textContent = `${completedTodos.length} / ${allActiveTodos.length}`;
+  
+  updateBulkBarUI();
   
   const activeList = getActiveTodos();
   todoList.innerHTML = '';
@@ -443,19 +455,24 @@ function renderTodos(useAnimation = false) {
     li.dataset.id = todo.id;
     li.draggable = true;
     
-    // 0. 다중 선택 체크박스 (맨 왼쪽)
-    const selectCheckbox = document.createElement('input');
-    selectCheckbox.type = 'checkbox';
-    selectCheckbox.className = 'bulk-select-checkbox';
-    selectCheckbox.dataset.id = todo.id;
-    selectCheckbox.title = '일괄 선택';
-
-    // 1. 체크박스 (완료 토글)
+    // 1. 체크박스 (일반 모드: 완료 토글 / 선택 모드: 다중 선택)
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'todo-checkbox';
-    checkbox.checked = todo.completed;
-    checkbox.addEventListener('change', () => toggleTodo(todo.id, checkbox.checked));
+    
+    if (isSelectMode) {
+      checkbox.checked = selectedTodoIds.has(todo.id);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+          selectedTodoIds.add(todo.id);
+        } else {
+          selectedTodoIds.delete(todo.id);
+        }
+      });
+    } else {
+      checkbox.checked = todo.completed;
+      checkbox.addEventListener('change', () => toggleTodo(todo.id, checkbox.checked));
+    }
     
     // 2. 할 일 내용 (중앙)
     const contentDiv = document.createElement('div');
@@ -520,7 +537,6 @@ function renderTodos(useAnimation = false) {
       });
     });
 
-    li.appendChild(selectCheckbox);
     li.appendChild(checkbox);
     li.appendChild(contentDiv);
     li.appendChild(delBtn);
@@ -669,6 +685,7 @@ filterBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     filterState = btn.dataset.filter;
     updateFilterUI();
+    updateBulkBarUI();
     renderTodos(true);
   });
 });
@@ -756,14 +773,47 @@ emptyTrashBtn?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 8. Bulk Actions & Reset All Completed
+// 8. Select Mode & Bulk Actions
 // ==========================================
 
+function updateBulkBarUI() {
+  if (!bulkBar) return;
+  
+  const showBulkComplete = isSelectMode && (filterState === 'all' || filterState === 'active');
+  const showBulkActive = isSelectMode && filterState === 'completed';
+  const showReset = filterState === 'completed';
+  
+  if (bulkCompleteBtn) bulkCompleteBtn.style.display = showBulkComplete ? 'inline-block' : 'none';
+  if (bulkActiveBtn) bulkActiveBtn.style.display = showBulkActive ? 'inline-block' : 'none';
+  if (resetAllCompletedBtn) resetAllCompletedBtn.style.display = showReset ? 'inline-block' : 'none';
+  
+  if (showBulkComplete || showBulkActive || showReset) {
+    bulkBar.style.display = 'flex';
+  } else {
+    bulkBar.style.display = 'none';
+  }
+}
+
+// [선택 / 취소] 모드 토글 버튼
+toggleSelectModeBtn?.addEventListener('click', () => {
+  isSelectMode = !isSelectMode;
+  selectedTodoIds.clear();
+  
+  if (isSelectMode) {
+    toggleSelectModeBtn.textContent = '취소';
+    toggleSelectModeBtn.classList.add('active');
+  } else {
+    toggleSelectModeBtn.textContent = '선택';
+    toggleSelectModeBtn.classList.remove('active');
+  }
+  
+  updateBulkBarUI();
+  renderTodos();
+});
+
 // [선택 항목 완료 처리]
-const bulkCompleteBtn = document.getElementById('bulkCompleteBtn');
 bulkCompleteBtn?.addEventListener('click', () => {
-  const selectedCheckboxes = document.querySelectorAll('.bulk-select-checkbox:checked');
-  if (selectedCheckboxes.length === 0) {
+  if (selectedTodoIds.size === 0) {
     alert('완료 처리할 항목을 선택해 주세요.');
     return;
   }
@@ -772,8 +822,7 @@ bulkCompleteBtn?.addEventListener('click', () => {
   const ref = getTodosRef();
   let count = 0;
   
-  selectedCheckboxes.forEach(cb => {
-    const todoId = cb.dataset.id;
+  selectedTodoIds.forEach(todoId => {
     const targetTodo = todos.find(t => t.id === todoId);
     if (targetTodo && !targetTodo.completed) {
       batch.update(ref.doc(todoId), { completed: true });
@@ -788,16 +837,18 @@ bulkCompleteBtn?.addEventListener('click', () => {
   
   batch.commit()
     .then(() => {
-      document.querySelectorAll('.bulk-select-checkbox').forEach(cb => cb.checked = false);
+      isSelectMode = false;
+      toggleSelectModeBtn.textContent = '선택';
+      toggleSelectModeBtn.classList.remove('active');
+      selectedTodoIds.clear();
+      updateBulkBarUI();
     })
     .catch(err => alert(`일괄 완료 처리 실패: ${err.message}`));
 });
 
 // [선택 항목 진행 중으로 이동]
-const bulkActiveBtn = document.getElementById('bulkActiveBtn');
 bulkActiveBtn?.addEventListener('click', () => {
-  const selectedCheckboxes = document.querySelectorAll('.bulk-select-checkbox:checked');
-  if (selectedCheckboxes.length === 0) {
+  if (selectedTodoIds.size === 0) {
     alert('진행 중으로 이동할 항목을 선택해 주세요.');
     return;
   }
@@ -806,8 +857,7 @@ bulkActiveBtn?.addEventListener('click', () => {
   const ref = getTodosRef();
   let count = 0;
   
-  selectedCheckboxes.forEach(cb => {
-    const todoId = cb.dataset.id;
+  selectedTodoIds.forEach(todoId => {
     const targetTodo = todos.find(t => t.id === todoId);
     if (targetTodo && targetTodo.completed) {
       batch.update(ref.doc(todoId), { completed: false });
@@ -822,13 +872,16 @@ bulkActiveBtn?.addEventListener('click', () => {
   
   batch.commit()
     .then(() => {
-      document.querySelectorAll('.bulk-select-checkbox').forEach(cb => cb.checked = false);
+      isSelectMode = false;
+      toggleSelectModeBtn.textContent = '선택';
+      toggleSelectModeBtn.classList.remove('active');
+      selectedTodoIds.clear();
+      updateBulkBarUI();
     })
     .catch(err => alert(`일괄 진행 중 이동 실패: ${err.message}`));
 });
 
 // [완료 항목 전체 리셋]
-const resetAllCompletedBtn = document.getElementById('resetAllCompletedBtn');
 resetAllCompletedBtn?.addEventListener('click', () => {
   const completedInFolder = todos.filter(t => t.folderId === activeFolderId && t.completed && !t.deleted);
   

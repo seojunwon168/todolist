@@ -145,16 +145,18 @@
           <button class="filter-btn" data-filter="active">진행 중 <span id="badgeActive">0</span></button>
           <button class="filter-btn" data-filter="completed">완료됨 <span id="badgeCompleted">0</span></button>
         </div>
-        <span class="sort-notice">자동 정렬됨</span>
+        <div class="controls-right">
+          <button type="button" id="toggleSelectModeBtn" class="select-mode-btn">선택</button>
+        </div>
       </section>
 
-      <!-- 일괄 조작 및 전체 리셋 바 -->
-      <section class="bulk-bar" id="bulkBar">
+      <!-- 일괄 조작 및 전체 리셋 바 (조건부 노출) -->
+      <section class="bulk-bar" id="bulkBar" style="display: none;">
         <div class="bulk-actions-group">
-          <button type="button" id="bulkCompleteBtn" class="bulk-btn">선택 항목 완료 처리</button>
-          <button type="button" id="bulkActiveBtn" class="bulk-btn">선택 항목 진행 중으로 이동</button>
+          <button type="button" id="bulkCompleteBtn" class="bulk-btn" style="display: none;">선택 항목 완료 처리</button>
+          <button type="button" id="bulkActiveBtn" class="bulk-btn" style="display: none;">선택 항목 진행 중으로 이동</button>
         </div>
-        <button type="button" id="resetAllCompletedBtn" class="bulk-btn reset-btn">완료 항목 전체 리셋</button>
+        <button type="button" id="resetAllCompletedBtn" class="bulk-btn reset-btn" style="display: none;">완료 항목 전체 리셋</button>
       </section>
 
       <!-- 메인 할 일 리스트 영역 -->
@@ -217,6 +219,6 @@
     }
   </script>
   
-  <script src="script.js?v=10000"></script>
+  <script src="script.js?v=11000"></script>
 </body>
 </html>
