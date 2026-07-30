@@ -443,7 +443,14 @@ function renderTodos(useAnimation = false) {
     li.dataset.id = todo.id;
     li.draggable = true;
     
-    // 1. 체크박스 (맨 왼쪽)
+    // 0. 다중 선택 체크박스 (맨 왼쪽)
+    const selectCheckbox = document.createElement('input');
+    selectCheckbox.type = 'checkbox';
+    selectCheckbox.className = 'bulk-select-checkbox';
+    selectCheckbox.dataset.id = todo.id;
+    selectCheckbox.title = '일괄 선택';
+
+    // 1. 체크박스 (완료 토글)
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'todo-checkbox';
@@ -513,6 +520,7 @@ function renderTodos(useAnimation = false) {
       });
     });
 
+    li.appendChild(selectCheckbox);
     li.appendChild(checkbox);
     li.appendChild(contentDiv);
     li.appendChild(delBtn);
@@ -712,7 +720,7 @@ function renderTrash() {
     restoreBtn.className = 'action-btn restore';
     restoreBtn.textContent = '복구';
     restoreBtn.addEventListener('click', () => {
-      getTodosRef().doc(todo.id).update({ deleted: false }).catch(err => alert(`복구 실패: ${err.message}`));
+      getTodosRef().doc(todo.id).update({ deleted: false, completed: false }).catch(err => alert(`복구 실패: ${err.message}`));
     });
     
     const permDelBtn = document.createElement('button');
@@ -727,7 +735,7 @@ function renderTrash() {
     actionsDiv.appendChild(restoreBtn);
     actionsDiv.appendChild(permDelBtn);
     
-    li.appendChild(contentDiv);
+    li.appendChild(textSpan);
     li.appendChild(actionsDiv);
     trashList.appendChild(li);
   });
@@ -745,4 +753,101 @@ emptyTrashBtn?.addEventListener('click', () => {
   });
   
   batch.commit().catch(err => alert(`휴지통 비우기 실패: ${err.message}`));
+});
+
+// ==========================================
+// 8. Bulk Actions & Reset All Completed
+// ==========================================
+
+// [선택 항목 완료 처리]
+const bulkCompleteBtn = document.getElementById('bulkCompleteBtn');
+bulkCompleteBtn?.addEventListener('click', () => {
+  const selectedCheckboxes = document.querySelectorAll('.bulk-select-checkbox:checked');
+  if (selectedCheckboxes.length === 0) {
+    alert('완료 처리할 항목을 선택해 주세요.');
+    return;
+  }
+  
+  const batch = db.batch();
+  const ref = getTodosRef();
+  let count = 0;
+  
+  selectedCheckboxes.forEach(cb => {
+    const todoId = cb.dataset.id;
+    const targetTodo = todos.find(t => t.id === todoId);
+    if (targetTodo && !targetTodo.completed) {
+      batch.update(ref.doc(todoId), { completed: true });
+      count++;
+    }
+  });
+  
+  if (count === 0) {
+    alert('선택된 항목 중 완료 처리할 진행 중 항목이 없습니다.');
+    return;
+  }
+  
+  batch.commit()
+    .then(() => {
+      document.querySelectorAll('.bulk-select-checkbox').forEach(cb => cb.checked = false);
+    })
+    .catch(err => alert(`일괄 완료 처리 실패: ${err.message}`));
+});
+
+// [선택 항목 진행 중으로 이동]
+const bulkActiveBtn = document.getElementById('bulkActiveBtn');
+bulkActiveBtn?.addEventListener('click', () => {
+  const selectedCheckboxes = document.querySelectorAll('.bulk-select-checkbox:checked');
+  if (selectedCheckboxes.length === 0) {
+    alert('진행 중으로 이동할 항목을 선택해 주세요.');
+    return;
+  }
+  
+  const batch = db.batch();
+  const ref = getTodosRef();
+  let count = 0;
+  
+  selectedCheckboxes.forEach(cb => {
+    const todoId = cb.dataset.id;
+    const targetTodo = todos.find(t => t.id === todoId);
+    if (targetTodo && targetTodo.completed) {
+      batch.update(ref.doc(todoId), { completed: false });
+      count++;
+    }
+  });
+  
+  if (count === 0) {
+    alert('선택된 항목 중 진행 중으로 이동할 완료 항목이 없습니다.');
+    return;
+  }
+  
+  batch.commit()
+    .then(() => {
+      document.querySelectorAll('.bulk-select-checkbox').forEach(cb => cb.checked = false);
+    })
+    .catch(err => alert(`일괄 진행 중 이동 실패: ${err.message}`));
+});
+
+// [완료 항목 전체 리셋]
+const resetAllCompletedBtn = document.getElementById('resetAllCompletedBtn');
+resetAllCompletedBtn?.addEventListener('click', () => {
+  const completedInFolder = todos.filter(t => t.folderId === activeFolderId && t.completed && !t.deleted);
+  
+  if (completedInFolder.length === 0) {
+    alert('리셋할 완료 항목이 없습니다.');
+    return;
+  }
+  
+  if (!confirm(`완료된 ${completedInFolder.length}개 항목을 모두 진행 중 상태로 리셋하시겠습니까?`)) {
+    return;
+  }
+  
+  const batch = db.batch();
+  const ref = getTodosRef();
+  
+  completedInFolder.forEach(t => {
+    batch.update(ref.doc(t.id), { completed: false });
+  });
+  
+  batch.commit()
+    .catch(err => alert(`전체 리셋 실패: ${err.message}`));
 });

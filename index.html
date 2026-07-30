@@ -148,6 +148,15 @@
         <span class="sort-notice">자동 정렬됨</span>
       </section>
 
+      <!-- 일괄 조작 및 전체 리셋 바 -->
+      <section class="bulk-bar" id="bulkBar">
+        <div class="bulk-actions-group">
+          <button type="button" id="bulkCompleteBtn" class="bulk-btn">선택 항목 완료 처리</button>
+          <button type="button" id="bulkActiveBtn" class="bulk-btn">선택 항목 진행 중으로 이동</button>
+        </div>
+        <button type="button" id="resetAllCompletedBtn" class="bulk-btn reset-btn">완료 항목 전체 리셋</button>
+      </section>
+
       <!-- 메인 할 일 리스트 영역 -->
       <section class="list-section">
         <div id="emptyState" class="empty-state">
@@ -208,6 +217,6 @@
     }
   </script>
   
-  <script src="script.js?v=9000"></script>
+  <script src="script.js?v=10000"></script>
 </body>
 </html>
