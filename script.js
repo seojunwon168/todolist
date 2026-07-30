@@ -453,7 +453,21 @@ function renderTodos(useAnimation = false) {
     const li = document.createElement('li');
     li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
     li.dataset.id = todo.id;
-    li.draggable = true;
+    li.draggable = !isSelectMode;
+    
+    // 선택 모드일 경우: 행(li) 전체 클릭으로 다중 선택 토글
+    li.addEventListener('click', (e) => {
+      if (!isSelectMode) return;
+      if (e.target === checkbox) return; // 체크박스 자체 클릭 시 중복 처리 방지
+      
+      if (selectedTodoIds.has(todo.id)) {
+        selectedTodoIds.delete(todo.id);
+        checkbox.checked = false;
+      } else {
+        selectedTodoIds.add(todo.id);
+        checkbox.checked = true;
+      }
+    });
     
     // 1. 체크박스 (일반 모드: 완료 토글 / 선택 모드: 다중 선택)
     const checkbox = document.createElement('input');
@@ -506,20 +520,10 @@ function renderTodos(useAnimation = false) {
     });
 
     textSpan.addEventListener('click', (e) => {
+      // 선택 모드일 경에는 인라인 수정을 차단 (li 클릭 이벤트가 토글 처리)
+      if (isSelectMode) return;
+      
       e.stopPropagation();
-      
-      // 선택 모드일 경우: 인라인 수정 차단 및 텍스트 클릭으로 다중 선택 토글
-      if (isSelectMode) {
-        if (selectedTodoIds.has(todo.id)) {
-          selectedTodoIds.delete(todo.id);
-          checkbox.checked = false;
-        } else {
-          selectedTodoIds.add(todo.id);
-          checkbox.checked = true;
-        }
-        return;
-      }
-      
       const input = document.createElement('input');
       input.type = 'text';
       input.value = todo.text;
@@ -570,6 +574,10 @@ let dragCounter = 0;
 
 function setupDragAndDrop(li, id) {
   li.addEventListener('dragstart', (e) => {
+    if (isSelectMode) {
+      e.preventDefault();
+      return;
+    }
     draggedItem = { element: li, id: id };
     e.dataTransfer.effectAllowed = 'move';
     setTimeout(() => li.classList.add('dragging'), 0);
