@@ -292,6 +292,20 @@ function renderFolders() {
     li.appendChild(name);
     li.appendChild(count);
     
+    if (folder.id !== 'inbox') {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'folder-delete-btn';
+      delBtn.title = '프로젝트 삭제';
+      delBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>`;
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm(`'${folder.name}' 프로젝트를 삭제하시겠습니까?\n내부의 모든 할 일도 함께 삭제됩니다.`)) {
+          deleteFolder(folder.id);
+        }
+      });
+      li.appendChild(delBtn);
+    }
+    
     li.addEventListener('click', () => {
       activeFolderId = folder.id;
       renderFolders();
@@ -368,6 +382,26 @@ addFolderBtn?.addEventListener('click', () => {
     activeFolderId = newFolderRef.id;
   }).catch(err => alert(`프로젝트 생성 실패: ${err.message}`));
 });
+
+function deleteFolder(folderId) {
+  if (folderId === 'inbox') return;
+  
+  const batch = db.batch();
+  batch.delete(getFoldersRef().doc(folderId));
+  
+  const todosToDelete = todos.filter(t => t.folderId === folderId);
+  todosToDelete.forEach(t => {
+    batch.delete(getTodosRef().doc(t.id));
+  });
+  
+  batch.commit()
+    .then(() => {
+      if (activeFolderId === folderId) {
+        activeFolderId = 'inbox';
+      }
+    })
+    .catch(err => alert(`프로젝트 삭제 실패: ${err.message}`));
+}
 
 // ==========================================
 // 6. Todos Rendering & Logic
