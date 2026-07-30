@@ -833,19 +833,15 @@ body {
   background-color: var(--bg-hover);
 }
 
-/* Trash Body */
+/* Trash Body (기본 숨김) */
 .trash-body {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
-  opacity: 0;
+  display: none;
+  margin-top: 0.5rem;
 }
 
+/* open 클래스가 포함되면 표시 */
 .trash-section.open .trash-body {
-  max-height: none !important;
-  opacity: 1 !important;
-  margin-top: 0.5rem;
-  display: block !important;
+  display: block;
 }
 
 /* Trash List Items */

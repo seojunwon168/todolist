@@ -670,37 +670,12 @@ function updateFilterUI() {
   document.querySelector(`.filter-btn[data-filter="${filterState}"]`)?.classList.add('active');
 }
 
-// [수정5] 휴지통 아코디언 로직 (버블링 차단 및 구문 오류 수정 완료)
-let isTrashOpen = false;
-if (trashBody) trashBody.style.display = 'none';
-
-emptyTrashBtn?.addEventListener('click', (e) => {
-  e.stopPropagation();
-  if (!confirm('휴지통을 비우시겠습니까? 이 작업은 취소할 수 없습니다.')) return;
-  
-  const deletedTodos = todos.filter(t => t.deleted);
-  const batch = db.batch();
-  const ref = getTodosRef();
-  
-  deletedTodos.forEach(todo => {
-    batch.delete(ref.doc(todo.id));
-  });
-  
-  batch.commit().catch(err => alert(`휴지통 비우기 실패: ${err.message}`));
-});
-
+// [수정5] 휴지통 아코디언 로직 (classList.toggle)
 trashToggle?.addEventListener('click', (e) => {
   if (e.target.closest('#emptyTrashBtn')) return;
-  
-  isTrashOpen = !isTrashOpen;
   const section = trashToggle.closest('.trash-section');
-  
-  if (isTrashOpen) {
-    if (section) section.classList.add('open');
-    if (trashBody) trashBody.style.display = 'block';
-  } else {
-    if (section) section.classList.remove('open');
-    if (trashBody) trashBody.style.display = 'none';
+  if (section) {
+    section.classList.toggle('open');
   }
 });
 
@@ -752,8 +727,22 @@ function renderTrash() {
     actionsDiv.appendChild(restoreBtn);
     actionsDiv.appendChild(permDelBtn);
     
-    li.appendChild(textSpan);
+    li.appendChild(contentDiv);
     li.appendChild(actionsDiv);
     trashList.appendChild(li);
   });
 }
+
+emptyTrashBtn?.addEventListener('click', () => {
+  if (!confirm('휴지통을 비우시겠습니까? 이 작업은 취소할 수 없습니다.')) return;
+  
+  const deletedTodos = todos.filter(t => t.deleted);
+  const batch = db.batch();
+  const ref = getTodosRef();
+  
+  deletedTodos.forEach(todo => {
+    batch.delete(ref.doc(todo.id));
+  });
+  
+  batch.commit().catch(err => alert(`휴지통 비우기 실패: ${err.message}`));
+});
