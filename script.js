@@ -4,7 +4,7 @@
 let db;
 let auth;
 
-// 과거 버전의 로컬 스토리지 찌꺼기 강제 초기화 (충돌 방지)
+// 로컬 스토리지 찌꺼기 강제 초기화
 try {
   localStorage.clear();
 } catch (e) {
@@ -15,25 +15,22 @@ if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
   auth = firebase.auth();
   db = firebase.firestore();
   
-  // 1. 방화벽/백신 통신 차단 우회 및 영구 오프라인 저장소 설정
+  // 방화벽/백신 통신 차단 우회 및 영구 오프라인 저장소 설정
   db.settings({
     experimentalForceLongPolling: true,
     cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
   });
-  
   db.enablePersistence().catch(function(err) {
     console.warn('[Firestore] 오프라인 저장소 활성화 실패:', err);
   });
   
   auth.onAuthStateChanged(user => {
-    if (isSigningUp) return; // 가입 진행 중일 땐 리스너 강제 무시
+    if (isSigningUp) return; 
     
     if (user) {
       currentUser = user;
       document.getElementById('loginContainer').style.display = 'none';
       document.getElementById('appContainer').style.display = 'block';
-      
-      // 유저가 확인되면 즉시 데이터 로드 실행
       setupFirestoreListeners(user.uid);
     } else {
       currentUser = null;
@@ -63,31 +60,42 @@ let isSigningUp = false;
 const authForm = document.getElementById('authForm');
 const emailInput = document.getElementById('emailInput');
 const passwordInput = document.getElementById('passwordInput');
-const passwordToggleBtn = document.getElementById('passwordToggleBtn');
-const showSignupBtn = document.getElementById('showSignupBtn');
+const showSignupBtn = document.getElementById('goToSignupBtn');
 
 const signupForm = document.getElementById('signupForm');
 const signupEmailInput = document.getElementById('signupEmailInput');
 const signupPasswordInput = document.getElementById('signupPasswordInput');
-const signupPasswordConfirm = document.getElementById('signupPasswordConfirm');
-const signupPasswordToggleBtn = document.getElementById('signupPasswordToggleBtn');
-const signupConfirmToggleBtn = document.getElementById('signupConfirmToggleBtn');
-const showLoginBtn = document.getElementById('showLoginBtn');
+const signupPasswordConfirm = document.getElementById('signupPasswordConfirmInput');
+const showLoginBtn = document.getElementById('goToLoginBtn');
 
 const logoutBtn = document.getElementById('logoutBtn');
 const folderList = document.getElementById('folderList');
 const addFolderBtn = document.getElementById('addFolderBtn');
 const todoList = document.getElementById('todoList');
+const emptyState = document.getElementById('emptyState');
 const todoForm = document.getElementById('todoForm');
 const todoInput = document.getElementById('todoInput');
-const typeToggleBtns = document.querySelectorAll('.type-toggle-btn');
+
+const typeToggleBtn = document.getElementById('typeToggleBtn');
 const filterBtns = document.querySelectorAll('.filter-btn');
 
-const folderTitle = document.getElementById('folderTitle');
-const trashFolderBtn = document.getElementById('trashFolderBtn');
-const trashListContainer = document.getElementById('trashListContainer');
+// (수정) 정확한 ID 바인딩
+const currentFolderTitle = document.getElementById('currentFolderTitle');
+
+// Trash
+const trashToggle = document.getElementById('trashToggle');
+const trashBody = document.getElementById('trashBody');
+const trashChevron = document.getElementById('trashChevron');
 const trashList = document.getElementById('trashList');
 const emptyTrashBtn = document.getElementById('emptyTrashBtn');
+const trashCount = document.getElementById('trashCount');
+const trashEmptyState = document.getElementById('trashEmptyState');
+
+// Counters
+const statsText = document.getElementById('statsText');
+const badgeAll = document.getElementById('badgeAll');
+const badgeActive = document.getElementById('badgeActive');
+const badgeCompleted = document.getElementById('badgeCompleted');
 
 let currentTodoType = 'task';
 
@@ -96,24 +104,20 @@ let currentTodoType = 'task';
 // ==========================================
 
 // 비밀번호 보기/숨기기 토글 유틸리티
-function setupPasswordToggle(inputEl, btnEl) {
-  if(!inputEl || !btnEl) return;
-  btnEl.addEventListener('click', () => {
-    if (inputEl.type === 'password') {
-      inputEl.type = 'text';
-      btnEl.textContent = '숨기기';
+const pwToggleBtns = document.querySelectorAll('.pw-toggle-btn');
+pwToggleBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = btn.previousElementSibling;
+    if (input.type === 'password') {
+      input.type = 'text';
+      btn.textContent = '숨기기';
     } else {
-      inputEl.type = 'password';
-      btnEl.textContent = '보기';
+      input.type = 'password';
+      btn.textContent = '보기';
     }
   });
-}
+});
 
-setupPasswordToggle(passwordInput, passwordToggleBtn);
-setupPasswordToggle(signupPasswordInput, signupPasswordToggleBtn);
-setupPasswordToggle(signupPasswordConfirm, signupConfirmToggleBtn);
-
-// 로그인 <-> 회원가입 화면 전환
 showSignupBtn?.addEventListener('click', (e) => {
   e.preventDefault();
   document.getElementById('loginView').style.display = 'none';
@@ -126,7 +130,6 @@ showLoginBtn?.addEventListener('click', (e) => {
   document.getElementById('loginView').style.display = 'block';
 });
 
-// 로그인
 authForm?.addEventListener('submit', (e) => {
   e.preventDefault();
   const email = emailInput.value.trim();
@@ -144,7 +147,6 @@ authForm?.addEventListener('submit', (e) => {
     });
 });
 
-// 회원가입
 signupForm?.addEventListener('submit', (e) => {
   e.preventDefault();
   const email = signupEmailInput.value.trim();
@@ -158,14 +160,12 @@ signupForm?.addEventListener('submit', (e) => {
     return;
   }
   
-  isSigningUp = true; // onAuthStateChanged 방해 방지
+  isSigningUp = true; 
   
   auth.createUserWithEmailAndPassword(email, password)
     .then((userCredential) => {
-      // 자동 로그인 처리
       currentUser = userCredential.user;
       
-      // 입력창 초기화
       signupEmailInput.value = '';
       signupPasswordInput.value = '';
       signupPasswordConfirm.value = '';
@@ -173,7 +173,6 @@ signupForm?.addEventListener('submit', (e) => {
       document.getElementById('loginContainer').style.display = 'none';
       document.getElementById('appContainer').style.display = 'block';
       
-      // 회원가입 직후 데이터 로드 실행
       setupFirestoreListeners(currentUser.uid);
       isSigningUp = false;
     })
@@ -183,13 +182,12 @@ signupForm?.addEventListener('submit', (e) => {
     });
 });
 
-// 로그아웃
 logoutBtn?.addEventListener('click', () => {
   auth.signOut().catch(error => alert(`로그아웃 에러: ${error.message}`));
 });
 
 // ==========================================
-// 4. Firestore Database Fetching (덮어쓰기 로직 전면 제거)
+// 4. Firestore Database Fetching (덮어쓰기 없음 로직 유지)
 // ==========================================
 
 function getFoldersRef() {
@@ -209,14 +207,12 @@ function setupFirestoreListeners(uid) {
   if (unsubscribeFolders) unsubscribeFolders();
   if (unsubscribeTodos) unsubscribeTodos();
   
-  // 1. Folders Fetch (빈 배열 상태를 DB에 자동 덮어쓰는 로직 삭제!)
   unsubscribeFolders = foldersRef.onSnapshot(snapshot => {
     folders = [];
     snapshot.forEach(doc => {
       folders.push({ id: doc.id, ...doc.data() });
     });
     
-    // 만약 DB에 inbox가 없다면 로컬 배열에만 가상으로 추가해서 UI가 안 깨지게 방어 (서버에는 안 씀)
     if (!folders.find(f => f.id === 'inbox')) {
       folders.push({
         id: 'inbox',
@@ -225,7 +221,6 @@ function setupFirestoreListeners(uid) {
       });
     }
 
-    // [정렬 로직 수정]: inbox는 무조건 0번(최상단) 고정. 나머지는 createdAt 오름차순(새 프로젝트가 맨 아래로)
     folders.sort((a, b) => {
       if (a.id === 'inbox') return -1;
       if (b.id === 'inbox') return 1;
@@ -244,14 +239,12 @@ function setupFirestoreListeners(uid) {
     alert(`[Firestore Error] 폴더 불러오기 실패:\n${err.message}`);
   });
 
-  // 2. Todos Fetch
   unsubscribeTodos = todosRef.onSnapshot(snapshot => {
     todos = [];
     snapshot.forEach(doc => {
       todos.push({ id: doc.id, ...doc.data() });
     });
     
-    // 할일 정렬: order 기준 오름차순
     todos.sort((a, b) => (a.order || 0) - (b.order || 0));
     
     renderTodos();
@@ -285,8 +278,9 @@ function renderFolders() {
     icon.className = 'folder-icon';
     icon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
     
+    // [수정1] 올바른 CSS 클래스(folder-text) 할당으로 사이드바 왼쪽 정렬 복구
     const name = document.createElement('span');
-    name.className = 'folder-name';
+    name.className = 'folder-text';
     name.textContent = folder.name || 'Untitled';
     
     const count = document.createElement('span');
@@ -302,12 +296,6 @@ function renderFolders() {
       activeFolderId = folder.id;
       renderFolders();
       renderTodos();
-      
-      trashFolderBtn.classList.remove('active');
-      todoForm.style.display = 'flex';
-      trashListContainer.style.display = 'none';
-      document.querySelector('.controls-section').style.display = 'flex';
-      document.getElementById('todoList').style.display = 'block';
     });
     
     folderList.appendChild(li);
@@ -316,15 +304,16 @@ function renderFolders() {
   updateFolderTitle();
 }
 
+// [수정2] 타이틀 동적 업데이트 복구
 function updateFolderTitle() {
-  if (!folderTitle) return;
+  if (!currentFolderTitle) return;
   const currentFolder = folders.find(f => f.id === activeFolderId);
-  folderTitle.textContent = currentFolder ? currentFolder.name : 'Inbox';
+  currentFolderTitle.textContent = currentFolder ? currentFolder.name : 'Inbox';
 }
 
-// 프로젝트 이름 인라인 수정 로직
-folderTitle?.addEventListener('click', () => {
-  if (activeFolderId === 'inbox' || activeFolderId === 'trash') return;
+// [수정3] 인라인 수정 로직 복구
+currentFolderTitle?.addEventListener('click', () => {
+  if (activeFolderId === 'inbox') return;
   const currentFolder = folders.find(f => f.id === activeFolderId);
   if (!currentFolder) return;
   
@@ -341,7 +330,7 @@ folderTitle?.addEventListener('click', () => {
   input.style.padding = '0.2rem 0.5rem';
   input.style.borderRadius = 'var(--radius-sm)';
   
-  folderTitle.replaceWith(input);
+  currentFolderTitle.replaceWith(input);
   input.focus();
   
   let isSaved = false;
@@ -354,7 +343,8 @@ folderTitle?.addEventListener('click', () => {
     if (newName && newName !== currentFolder.name) {
       getFoldersRef().doc(activeFolderId).update({ name: newName }).catch(err => alert(`프로젝트 이름 수정 실패: ${err.message}`));
     }
-    input.replaceWith(folderTitle);
+    input.replaceWith(currentFolderTitle);
+    updateFolderTitle();
   };
   
   input.addEventListener('blur', saveName);
@@ -362,7 +352,7 @@ folderTitle?.addEventListener('click', () => {
     if (e.key === 'Enter') saveName();
     else if (e.key === 'Escape') {
       isSaved = true;
-      input.replaceWith(folderTitle);
+      input.replaceWith(currentFolderTitle);
     }
   });
 });
@@ -380,7 +370,7 @@ addFolderBtn?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 6. Todos Rendering & Logic (미니멀리즘 디자인 롤백)
+// 6. Todos Rendering & Logic
 // ==========================================
 
 function getActiveTodos() {
@@ -393,21 +383,25 @@ function getActiveTodos() {
 function renderTodos(useAnimation = false) {
   if (!todoList) return;
   
+  const allActiveTodos = todos.filter(t => t.folderId === activeFolderId && !t.deleted);
+  const completedTodos = allActiveTodos.filter(t => t.completed);
+  const inProgressTodos = allActiveTodos.filter(t => !t.completed);
+  
+  // [수정6] 상단 필터 및 진행률 카운터(배지) 업데이트
+  if (badgeAll) badgeAll.textContent = allActiveTodos.length;
+  if (badgeActive) badgeActive.textContent = inProgressTodos.length;
+  if (badgeCompleted) badgeCompleted.textContent = completedTodos.length;
+  if (statsText) statsText.textContent = `${completedTodos.length} / ${allActiveTodos.length}`;
+  
   const activeList = getActiveTodos();
   todoList.innerHTML = '';
   
   if (activeList.length === 0) {
-    const emptyState = document.createElement('div');
-    emptyState.className = 'empty-state';
-    emptyState.innerHTML = `
-      <div class="empty-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="9" x2="12" y2="15"></line><line x1="9" y1="12" x2="15" y2="12"></line></svg>
-      </div>
-      <p>등록된 항목이 없습니다</p>
-    `;
-    todoList.appendChild(emptyState);
+    emptyState.style.display = 'block';
     return;
   }
+  
+  emptyState.style.display = 'none';
   
   activeList.forEach((todo, index) => {
     const li = document.createElement('li');
@@ -415,14 +409,14 @@ function renderTodos(useAnimation = false) {
     li.dataset.id = todo.id;
     li.draggable = true;
     
-    // [망가진 UI 롤백] 1. 순정 체크박스 (맨 왼쪽)
+    // 1. 체크박스 (맨 왼쪽)
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'todo-checkbox';
     checkbox.checked = todo.completed;
     checkbox.addEventListener('change', () => toggleTodo(todo.id, checkbox.checked));
     
-    // [망가진 UI 롤백] 2. 할 일 텍스트 및 타입 뱃지 (중앙)
+    // 2. 할 일 내용 (중앙)
     const contentDiv = document.createElement('div');
     contentDiv.className = 'todo-content';
     
@@ -437,7 +431,7 @@ function renderTodos(useAnimation = false) {
     contentDiv.appendChild(typeIndicator);
     contentDiv.appendChild(textSpan);
     
-    // [망가진 UI 롤백] 3. 삭제 버튼 (맨 오른쪽)
+    // 3. 삭제 버튼 (맨 오른쪽)
     const delBtn = document.createElement('button');
     delBtn.className = 'delete-btn';
     delBtn.innerHTML = `
@@ -453,7 +447,6 @@ function renderTodos(useAnimation = false) {
       deleteTodo(todo.id);
     });
 
-    // 텍스트 인라인 수정
     textSpan.addEventListener('click', (e) => {
       e.stopPropagation();
       const input = document.createElement('input');
@@ -486,12 +479,10 @@ function renderTodos(useAnimation = false) {
       });
     });
 
-    // 롤백된 DOM 구조 그대로 조립
     li.appendChild(checkbox);
     li.appendChild(contentDiv);
     li.appendChild(delBtn);
 
-    // 드래그 앤 드롭 연결
     setupDragAndDrop(li, todo.id);
     
     if (useAnimation) {
@@ -503,7 +494,6 @@ function renderTodos(useAnimation = false) {
   });
 }
 
-// Drag & Drop
 let draggedItem = null;
 let dragCounter = 0;
 
@@ -575,12 +565,17 @@ function reorderTodosInDOM() {
   batch.commit().catch(err => alert(`순서 변경 실패: ${err.message}`));
 }
 
-typeToggleBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    typeToggleBtns.forEach(b => b.removeAttribute('data-type'));
-    btn.dataset.type = 'item';
-    currentTodoType = btn.textContent.toLowerCase();
-  });
+// [수정4] 단일 토글 버튼 로직 복구
+typeToggleBtn?.addEventListener('click', () => {
+  if (currentTodoType === 'task') {
+    currentTodoType = 'item';
+    typeToggleBtn.dataset.type = 'item';
+    typeToggleBtn.textContent = 'Item';
+  } else {
+    currentTodoType = 'task';
+    typeToggleBtn.dataset.type = 'task';
+    typeToggleBtn.textContent = 'Task';
+  }
 });
 
 todoForm?.addEventListener('submit', (e) => {
@@ -619,6 +614,7 @@ function toggleTodo(id, isChecked) {
   getTodosRef().doc(id).update({ completed: isChecked }).catch(err => alert(`상태 변경 실패: ${err.message}`));
 }
 
+// [수정5] 영구 삭제가 아닌 deleted 플래그 처리
 function deleteTodo(id) {
   getTodosRef().doc(id).update({ deleted: true }).catch(err => alert(`삭제 실패: ${err.message}`));
 }
@@ -640,39 +636,41 @@ function updateFilterUI() {
   document.querySelector(`.filter-btn[data-filter="${filterState}"]`)?.classList.add('active');
 }
 
-trashFolderBtn?.addEventListener('click', () => {
-  activeFolderId = 'trash';
-  folderList.querySelectorAll('.folder-item').forEach(item => item.classList.remove('active'));
-  trashFolderBtn.classList.add('active');
-  
-  todoForm.style.display = 'none';
-  document.querySelector('.controls-section').style.display = 'none';
-  todoList.style.display = 'none';
-  trashListContainer.style.display = 'block';
-  
-  folderTitle.textContent = '휴지통';
-  renderTrash();
+// [수정5] 휴지통 아코디언 로직 복구
+let isTrashOpen = false;
+trashToggle?.addEventListener('click', () => {
+  isTrashOpen = !isTrashOpen;
+  if (isTrashOpen) {
+    trashBody.style.display = 'block';
+    trashChevron.style.transform = 'rotate(180deg)';
+  } else {
+    trashBody.style.display = 'none';
+    trashChevron.style.transform = 'rotate(0deg)';
+  }
 });
 
 function renderTrash() {
   if (!trashList) return;
-  const deletedTodos = todos.filter(t => t.deleted);
+  
+  const deletedTodos = todos.filter(t => t.deleted); // 전체 폴더의 삭제된 항목
+  
+  if (trashCount) trashCount.textContent = deletedTodos.length;
   
   trashList.innerHTML = '';
   
   if (deletedTodos.length === 0) {
-    trashList.innerHTML = '<div class="empty-state"><p>휴지통이 비어 있습니다</p></div>';
+    trashEmptyState.style.display = 'block';
     emptyTrashBtn.style.display = 'none';
     return;
   }
   
+  trashEmptyState.style.display = 'none';
   emptyTrashBtn.style.display = 'block';
   
   deletedTodos.forEach(todo => {
     const li = document.createElement('li');
     li.className = 'todo-item deleted';
     
-    // 휴지통에서도 UI 복원
     const contentDiv = document.createElement('div');
     contentDiv.className = 'todo-content';
     
