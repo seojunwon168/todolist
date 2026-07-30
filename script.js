@@ -671,22 +671,15 @@ function updateFilterUI() {
 }
 
 // [수정5] 휴지통 아코디언 로직 복구
-let isTrashOpen = false;
 trashToggle?.addEventListener('click', () => {
-  isTrashOpen = !isTrashOpen;
-  if (isTrashOpen) {
-    trashBody.style.display = 'block';
-    trashChevron.style.transform = 'rotate(180deg)';
-  } else {
-    trashBody.style.display = 'none';
-    trashChevron.style.transform = 'rotate(0deg)';
-  }
+  const section = trashToggle.closest('.trash-section');
+  if (section) section.classList.toggle('open');
 });
 
 function renderTrash() {
   if (!trashList) return;
   
-  const deletedTodos = todos.filter(t => t.deleted); // 전체 폴더의 삭제된 항목
+  const deletedTodos = todos.filter(t => t.deleted); 
   
   if (trashCount) trashCount.textContent = deletedTodos.length;
   
@@ -703,30 +696,25 @@ function renderTrash() {
   
   deletedTodos.forEach(todo => {
     const li = document.createElement('li');
-    li.className = 'todo-item deleted';
-    
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'todo-content';
+    li.className = 'trash-item';
     
     const textSpan = document.createElement('span');
-    textSpan.className = 'todo-text';
+    textSpan.className = 'trash-text';
     textSpan.textContent = todo.text;
     
-    contentDiv.appendChild(textSpan);
-    
     const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'todo-actions';
+    actionsDiv.className = 'trash-actions';
     
     const restoreBtn = document.createElement('button');
-    restoreBtn.className = 'action-btn restore-btn';
+    restoreBtn.className = 'action-btn restore';
     restoreBtn.textContent = '복구';
     restoreBtn.addEventListener('click', () => {
       getTodosRef().doc(todo.id).update({ deleted: false }).catch(err => alert(`복구 실패: ${err.message}`));
     });
     
     const permDelBtn = document.createElement('button');
-    permDelBtn.className = 'action-btn delete-btn';
-    permDelBtn.textContent = '영구삭제';
+    permDelBtn.className = 'action-btn permanent-delete';
+    permDelBtn.textContent = '완전 삭제';
     permDelBtn.addEventListener('click', () => {
       if (confirm('완전히 삭제하시겠습니까?')) {
         getTodosRef().doc(todo.id).delete().catch(err => alert(`영구삭제 실패: ${err.message}`));
