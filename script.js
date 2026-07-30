@@ -507,6 +507,19 @@ function renderTodos(useAnimation = false) {
 
     textSpan.addEventListener('click', (e) => {
       e.stopPropagation();
+      
+      // 선택 모드일 경우: 인라인 수정 차단 및 텍스트 클릭으로 다중 선택 토글
+      if (isSelectMode) {
+        if (selectedTodoIds.has(todo.id)) {
+          selectedTodoIds.delete(todo.id);
+          checkbox.checked = false;
+        } else {
+          selectedTodoIds.add(todo.id);
+          checkbox.checked = true;
+        }
+        return;
+      }
+      
       const input = document.createElement('input');
       input.type = 'text';
       input.value = todo.text;
