@@ -12,35 +12,58 @@ try {
 }
 
 if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
-  auth = firebase.auth();
-  db = firebase.firestore();
-  
-  // 방화벽/백신 통신 차단 우회 및 영구 오프라인 저장소 설정
-  db.settings({
-    experimentalForceLongPolling: true,
-    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
-  });
-  db.enablePersistence().catch(function(err) {
-    console.warn('[Firestore] 오프라인 저장소 활성화 실패:', err);
-  });
-  
-  auth.onAuthStateChanged(user => {
-    if (isSigningUp) return; 
+  try {
+    auth = firebase.auth();
+    db = firebase.firestore();
     
-    if (user) {
-      currentUser = user;
-      document.getElementById('loginContainer').style.display = 'none';
-      document.getElementById('appContainer').style.display = 'block';
-      setupFirestoreListeners(user.uid);
-    } else {
-      currentUser = null;
-      document.getElementById('loginContainer').style.display = 'flex';
-      document.getElementById('appContainer').style.display = 'none';
-      document.getElementById('loginView').style.display = 'block';
-      document.getElementById('signupView').style.display = 'none';
-      clearLocalData();
-    }
-  });
+    // 방화벽/백신 통신 차단 우회 및 영구 오프라인 저장소 설정
+    db.settings({
+      experimentalForceLongPolling: true,
+      cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+    });
+    db.enablePersistence().catch(function(err) {
+      console.warn('[Firestore] 오프라인 저장소 활성화 실패:', err);
+    });
+    
+    // 모바일 리디렉트 로그인 성공 결과 수신 (안전 처리)
+    auth.getRedirectResult().then(result => {
+      if (result && result.user) {
+        console.log('[Auth] 리디렉트 로그인 성공:', result.user.email);
+      }
+    }).catch(err => {
+      console.warn('[Auth] getRedirectResult 에러 (무시 가능):', err);
+    });
+    
+    auth.onAuthStateChanged(user => {
+      try {
+        if (isSigningUp) return; 
+        
+        if (user) {
+          currentUser = user;
+          const loginContainer = document.getElementById('loginContainer');
+          const appContainer = document.getElementById('appContainer');
+          if (loginContainer) loginContainer.style.display = 'none';
+          if (appContainer) appContainer.style.display = 'block';
+          setupFirestoreListeners(user.uid);
+        } else {
+          currentUser = null;
+          const loginContainer = document.getElementById('loginContainer');
+          const appContainer = document.getElementById('appContainer');
+          const loginView = document.getElementById('loginView');
+          const signupView = document.getElementById('signupView');
+          if (loginContainer) loginContainer.style.display = 'flex';
+          if (appContainer) appContainer.style.display = 'none';
+          if (loginView) loginView.style.display = 'block';
+          if (signupView) signupView.style.display = 'none';
+          clearLocalData();
+        }
+      } catch (authErr) {
+        console.error('[Auth] onAuthStateChanged 실행 예외 방어:', authErr);
+      }
+    });
+  } catch (initErr) {
+    console.error('[Firebase] 초기화 중 오류 발생 (UI 멈춤 방지):', initErr);
+  }
 }
 
 // ==========================================
@@ -108,6 +131,34 @@ const bulkActiveBtn = document.getElementById('bulkActiveBtn');
 const resetAllCompletedBtn = document.getElementById('resetAllCompletedBtn');
 
 let currentTodoType = 'task';
+
+// ==========================================
+// 2.5 Mobile Navigation & Independent UI Events
+// ==========================================
+try {
+  const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+  mobileMenuBtn?.addEventListener('click', () => {
+    sidebar?.classList.add('open');
+    sidebarOverlay?.classList.add('show');
+  });
+
+  sidebarOverlay?.addEventListener('click', () => {
+    sidebar?.classList.remove('open');
+    sidebarOverlay?.classList.remove('show');
+  });
+} catch (uiErr) {
+  console.warn('모바일 메뉴 이벤트 독립 바인딩 경고:', uiErr);
+}
+
+function closeMobileSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
+  sidebar?.classList.remove('open');
+  sidebarOverlay?.classList.remove('show');
+}
 
 // ==========================================
 // 3. Authentication (Login & Signup)
@@ -318,6 +369,7 @@ function renderFolders() {
     
     li.addEventListener('click', () => {
       activeFolderId = folder.id;
+      closeMobileSidebar();
       renderFolders();
       renderTodos();
     });
