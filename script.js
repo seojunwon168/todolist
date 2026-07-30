@@ -670,10 +670,21 @@ function updateFilterUI() {
   document.querySelector(`.filter-btn[data-filter="${filterState}"]`)?.classList.add('active');
 }
 
-// [수정5] 휴지통 아코디언 로직 복구
+// [수정5] 휴지통 아코디언 로직 (display 제어 포함)
+let isTrashOpen = false;
+trashBody.style.display = 'none'; // 초기 숨김 상태 강제 적용
+
 trashToggle?.addEventListener('click', () => {
+  isTrashOpen = !isTrashOpen;
   const section = trashToggle.closest('.trash-section');
-  if (section) section.classList.toggle('open');
+  
+  if (isTrashOpen) {
+    if (section) section.classList.add('open');
+    trashBody.style.display = 'block';
+  } else {
+    if (section) section.classList.remove('open');
+    trashBody.style.display = 'none';
+  }
 });
 
 function renderTrash() {
