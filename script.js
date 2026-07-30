@@ -815,21 +815,30 @@ function updateBulkBarUI() {
   }
 }
 
-// [선택 / 취소] 모드 토글 버튼
-toggleSelectModeBtn?.addEventListener('click', () => {
-  isSelectMode = !isSelectMode;
+// 선택 모드 완전 해제 및 UI 초기화 헬퍼 함수
+function exitSelectMode() {
+  isSelectMode = false;
   selectedTodoIds.clear();
-  
-  if (isSelectMode) {
-    toggleSelectModeBtn.textContent = '취소';
-    toggleSelectModeBtn.classList.add('active');
-  } else {
+  if (toggleSelectModeBtn) {
     toggleSelectModeBtn.textContent = '선택';
     toggleSelectModeBtn.classList.remove('active');
   }
-  
   updateBulkBarUI();
   renderTodos();
+}
+
+// [선택 / 취소] 모드 토글 버튼
+toggleSelectModeBtn?.addEventListener('click', () => {
+  if (isSelectMode) {
+    exitSelectMode();
+  } else {
+    isSelectMode = true;
+    toggleSelectModeBtn.textContent = '취소';
+    toggleSelectModeBtn.classList.add('active');
+    selectedTodoIds.clear();
+    updateBulkBarUI();
+    renderTodos();
+  }
 });
 
 // [선택 항목 완료 처리]
@@ -858,11 +867,7 @@ bulkCompleteBtn?.addEventListener('click', () => {
   
   batch.commit()
     .then(() => {
-      isSelectMode = false;
-      toggleSelectModeBtn.textContent = '선택';
-      toggleSelectModeBtn.classList.remove('active');
-      selectedTodoIds.clear();
-      updateBulkBarUI();
+      exitSelectMode(); // 일괄 처리 완료 후 자동 선택 모드 해제
     })
     .catch(err => alert(`일괄 완료 처리 실패: ${err.message}`));
 });
@@ -893,11 +898,7 @@ bulkActiveBtn?.addEventListener('click', () => {
   
   batch.commit()
     .then(() => {
-      isSelectMode = false;
-      toggleSelectModeBtn.textContent = '선택';
-      toggleSelectModeBtn.classList.remove('active');
-      selectedTodoIds.clear();
-      updateBulkBarUI();
+      exitSelectMode(); // 일괄 처리 완료 후 자동 선택 모드 해제
     })
     .catch(err => alert(`일괄 진행 중 이동 실패: ${err.message}`));
 });
