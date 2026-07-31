@@ -34,17 +34,19 @@ if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
       console.warn('[Auth] getRedirectResult 에러 (무시 가능):', err);
     });
     
-    auth.onAuthStateChanged(user => {
+    auth.onAuthStateChanged(async user => {
       try {
         if (isSigningUp) return; 
         
-        if (user) {
+        if (user && user.uid) {
           currentUser = user;
           const loginContainer = document.getElementById('loginContainer');
           const appContainer = document.getElementById('appContainer');
           if (loginContainer) loginContainer.style.display = 'none';
           if (appContainer) appContainer.style.display = 'block';
-          setupFirestoreListeners(user.uid);
+          
+          updateUserDebugInfo();
+          await setupFirestoreListeners(user.uid);
         } else {
           currentUser = null;
           const loginContainer = document.getElementById('loginContainer');
@@ -56,6 +58,7 @@ if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
           if (loginView) loginView.style.display = 'block';
           if (signupView) signupView.style.display = 'none';
           clearLocalData();
+          updateUserDebugInfo();
         }
       } catch (authErr) {
         console.error('[Auth] onAuthStateChanged 실행 예외 방어:', authErr);
@@ -261,58 +264,120 @@ function getTodosRef() {
   return db.collection('users').doc(currentUser.uid).collection('todos');
 }
 
-function setupFirestoreListeners(uid) {
+// 디버그 정보 UI 업데이트 함수
+function updateUserDebugInfo() {
+  const userEmailText = document.getElementById('userEmailText');
+  const userUidBadge = document.getElementById('userUidBadge');
+  const dataCountText = document.getElementById('dataCountText');
+  
+  if (currentUser) {
+    if (userEmailText) userEmailText.textContent = currentUser.email || '익명 계정';
+    if (userUidBadge) userUidBadge.textContent = `UID: ${currentUser.uid.substring(0, 5)}`;
+  } else {
+    if (userEmailText) userEmailText.textContent = '로그아웃됨';
+    if (userUidBadge) userUidBadge.textContent = 'UID: -----';
+  }
+  
+  const customFolderCount = folders.filter(f => f.id !== 'inbox').length;
+  if (dataCountText) {
+    dataCountText.textContent = `불러온 프로젝트 ${folders.length}개 (Inbox + ${customFolderCount}개)`;
+  }
+}
+
+async function setupFirestoreListeners(uid) {
+  if (!uid || !currentUser) return;
+
   const foldersRef = getFoldersRef();
   const todosRef = getTodosRef();
+  if (!foldersRef || !todosRef) return;
   
   if (unsubscribeFolders) unsubscribeFolders();
   if (unsubscribeTodos) unsubscribeTodos();
-  
-  unsubscribeFolders = foldersRef.onSnapshot(snapshot => {
+
+  updateUserDebugInfo();
+
+  // 1. 강제 서버 조회 (모바일 로컬 스토리지/캐시 엉킴 방지)
+  try {
+    const serverFolders = await foldersRef.get({ source: 'server' }).catch(err => {
+      console.warn('[Firestore] 서버 폴더 직접 조회 실패 (기본 캐시 수신):', err);
+      return null;
+    });
+    if (serverFolders) {
+      folders = [];
+      serverFolders.forEach(doc => folders.push({ id: doc.id, ...doc.data() }));
+      processFoldersData();
+    }
+  } catch (e) {
+    console.warn('[Firestore] 서버 폴더 로드 에러:', e);
+  }
+
+  try {
+    const serverTodos = await todosRef.get({ source: 'server' }).catch(err => {
+      console.warn('[Firestore] 서버 할일 직접 조회 실패 (기본 캐시 수신):', err);
+      return null;
+    });
+    if (serverTodos) {
+      todos = [];
+      serverTodos.forEach(doc => todos.push({ id: doc.id, ...doc.data() }));
+      processTodosData();
+    }
+  } catch (e) {
+    console.warn('[Firestore] 서버 할일 로드 에러:', e);
+  }
+
+  // 2. 실시간 snapshot 연결
+  unsubscribeFolders = foldersRef.onSnapshot({ includeMetadataChanges: true }, snapshot => {
     folders = [];
     snapshot.forEach(doc => {
       folders.push({ id: doc.id, ...doc.data() });
     });
-    
-    if (!folders.find(f => f.id === 'inbox')) {
-      folders.push({
-        id: 'inbox',
-        name: 'Inbox',
-        createdAt: null
-      });
-    }
-
-    folders.sort((a, b) => {
-      if (a.id === 'inbox') return -1;
-      if (b.id === 'inbox') return 1;
-      const timeA = a.createdAt ? a.createdAt.toMillis() : Date.now();
-      const timeB = b.createdAt ? b.createdAt.toMillis() : Date.now();
-      return timeA - timeB; 
-    });
-
-    if (!folders.find(f => f.id === activeFolderId)) {
-      activeFolderId = folders[0].id;
-    }
-    
-    renderFolders();
-    renderTodos();
+    processFoldersData();
   }, err => {
-    alert(`[Firestore Error] 폴더 불러오기 실패:\n${err.message}`);
+    console.warn(`[Firestore Error] 폴더 불러오기 실패:\n${err.message}`);
   });
 
-  unsubscribeTodos = todosRef.onSnapshot(snapshot => {
+  unsubscribeTodos = todosRef.onSnapshot({ includeMetadataChanges: true }, snapshot => {
     todos = [];
     snapshot.forEach(doc => {
       todos.push({ id: doc.id, ...doc.data() });
     });
-    
-    todos.sort((a, b) => (a.order || 0) - (b.order || 0));
-    
-    renderTodos();
-    renderTrash();
+    processTodosData();
   }, err => {
-    alert(`[Firestore Error] 할 일 불러오기 실패:\n${err.message}`);
+    console.warn(`[Firestore Error] 할 일 불러오기 실패:\n${err.message}`);
   });
+}
+
+function processFoldersData() {
+  if (!folders.find(f => f.id === 'inbox')) {
+    folders.push({
+      id: 'inbox',
+      name: 'Inbox',
+      createdAt: null
+    });
+  }
+
+  folders.sort((a, b) => {
+    if (a.id === 'inbox') return -1;
+    if (b.id === 'inbox') return 1;
+    const timeA = a.createdAt ? a.createdAt.toMillis() : Date.now();
+    const timeB = b.createdAt ? b.createdAt.toMillis() : Date.now();
+    return timeA - timeB; 
+  });
+
+  if (!folders.find(f => f.id === activeFolderId)) {
+    activeFolderId = folders[0].id;
+  }
+  
+  updateUserDebugInfo();
+  renderFolders();
+  renderTodos();
+}
+
+function processTodosData() {
+  todos.sort((a, b) => (a.order || 0) - (b.order || 0));
+  renderTodos();
+  renderTrash();
+  updateUserDebugInfo();
 }
 
 function clearLocalData() {

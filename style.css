@@ -365,6 +365,47 @@ body {
   border-top: 1px solid var(--border-main);
 }
 
+.user-debug-box {
+  margin-bottom: 0.65rem;
+  padding: 0.5rem 0.6rem;
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border-main);
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.user-info-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+  gap: 0.35rem;
+}
+
+.user-email-text {
+  font-weight: 500;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+}
+
+.user-uid-badge {
+  background-color: var(--border-light);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.data-count-text {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
 .logout-btn {
   width: 100%;
   background: transparent;
