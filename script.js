@@ -296,7 +296,9 @@ function updateUserDebugInfo() {
   }
 }
 
-// 실시간 동기화(onSnapshot) 전면 적용 및 순서 보장 Promise 반환
+let isInitialDataLoaded = false;
+
+// 실시간 동기화(onSnapshot) 전면 적용 및 최초 데이터 양쪽 완전 수신 보장 Promise 반환
 function setupFirestoreListeners(uid) {
   return new Promise((resolve, reject) => {
     if (!uid || !currentUser) {
@@ -316,26 +318,38 @@ function setupFirestoreListeners(uid) {
     if (unsubscribeFolders) unsubscribeFolders();
     if (unsubscribeTodos) unsubscribeTodos();
 
-    updateUserDebugInfo();
-
-    let foldersLoaded = false;
-    let todosLoaded = false;
+    isInitialDataLoaded = false;
+    let foldersReceived = false;
+    let todosReceived = false;
 
     function checkInitialLoadComplete() {
-      if (foldersLoaded && todosLoaded) {
+      if (foldersReceived && todosReceived && !isInitialDataLoaded) {
+        isInitialDataLoaded = true;
+        
+        processFoldersData(false);
+        processTodosData(false);
+        
+        renderFolders();
+        renderTodos();
+        renderTrash();
+        updateUserDebugInfo();
+        
         resolve();
       }
     }
 
-    // 실시간 onSnapshot 온전히 활성화 (서버 수신 즉시 UI 갱신)
+    // 실시간 onSnapshot 온전히 활성화 (최초 수신 후 동시 렌더링)
     unsubscribeFolders = foldersRef.onSnapshot(snapshot => {
       folders = [];
       snapshot.forEach(doc => {
         folders.push({ id: doc.id, ...doc.data() });
       });
-      processFoldersData();
-      foldersLoaded = true;
-      checkInitialLoadComplete();
+      foldersReceived = true;
+      if (isInitialDataLoaded) {
+        processFoldersData(true);
+      } else {
+        checkInitialLoadComplete();
+      }
     }, err => {
       alert("서버 통신 실패 (폴더 리스너): " + err.message);
       reject(err);
@@ -346,9 +360,12 @@ function setupFirestoreListeners(uid) {
       snapshot.forEach(doc => {
         todos.push({ id: doc.id, ...doc.data() });
       });
-      processTodosData();
-      todosLoaded = true;
-      checkInitialLoadComplete();
+      todosReceived = true;
+      if (isInitialDataLoaded) {
+        processTodosData(true);
+      } else {
+        checkInitialLoadComplete();
+      }
     }, err => {
       alert("서버 통신 실패 (할일 리스너): " + err.message);
       reject(err);
@@ -356,7 +373,7 @@ function setupFirestoreListeners(uid) {
   });
 }
 
-function processFoldersData() {
+function processFoldersData(shouldRender = true) {
   if (!folders.find(f => f.id === 'inbox')) {
     folders.push({
       id: 'inbox',
@@ -377,16 +394,20 @@ function processFoldersData() {
     activeFolderId = folders[0].id;
   }
   
-  updateUserDebugInfo();
-  renderFolders();
-  renderTodos();
+  if (shouldRender) {
+    updateUserDebugInfo();
+    renderFolders();
+    renderTodos();
+  }
 }
 
-function processTodosData() {
+function processTodosData(shouldRender = true) {
   todos.sort((a, b) => (a.order || 0) - (b.order || 0));
-  renderTodos();
-  renderTrash();
-  updateUserDebugInfo();
+  if (shouldRender) {
+    renderTodos();
+    renderTrash();
+    updateUserDebugInfo();
+  }
 }
 
 function clearLocalData() {
