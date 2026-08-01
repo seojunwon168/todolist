@@ -415,6 +415,21 @@ function clearLocalData() {
 // 5. Folders Rendering & Logic
 // ==========================================
 
+// 전역 인라인 편집 참조 (상태 누수 방지용)
+let isEditingProjectTitle = false;
+let activeEditInput = null;
+let activeEditingFolderId = null;
+
+// 프로젝트 전환이나 렌더링 시 기존 켜져있던 편집 상태를 강제로 닫는 헬퍼 함수
+function cancelFolderTitleEdit() {
+  if (activeEditInput && activeEditInput.parentNode) {
+    activeEditInput.replaceWith(currentFolderTitle);
+  }
+  activeEditInput = null;
+  activeEditingFolderId = null;
+  isEditingProjectTitle = false;
+}
+
 function renderFolders() {
   if (!folderList) return;
   folderList.innerHTML = '';
@@ -427,7 +442,6 @@ function renderFolders() {
     icon.className = 'folder-icon';
     icon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
     
-    // [수정1] 올바른 CSS 클래스(folder-text) 할당으로 사이드바 왼쪽 정렬 복구
     const name = document.createElement('span');
     name.className = 'folder-text';
     name.textContent = folder.name || 'Untitled';
@@ -455,7 +469,9 @@ function renderFolders() {
       li.appendChild(delBtn);
     }
     
+    // 프로젝트 전환 시 기존에 켜져 있던 편집 상태 무조건 강제 종료
     li.addEventListener('click', () => {
+      cancelFolderTitleEdit();
       activeFolderId = folder.id;
       closeMobileSidebar();
       renderFolders();
@@ -468,22 +484,26 @@ function renderFolders() {
   updateFolderTitle();
 }
 
-// [수정2] 타이틀 동적 업데이트 복구
+// 타이틀 동적 업데이트 (편집 박스 존재 시 강제 원복 후 갱신)
 function updateFolderTitle() {
   if (!currentFolderTitle) return;
+  if (activeEditInput && activeEditInput.parentNode) {
+    activeEditInput.replaceWith(currentFolderTitle);
+    activeEditInput = null;
+    isEditingProjectTitle = false;
+  }
   const currentFolder = folders.find(f => f.id === activeFolderId);
   currentFolderTitle.textContent = currentFolder ? currentFolder.name : 'Inbox';
 }
 
-// [수정3] 프로젝트 이름 인라인 수정 로직 (try-catch-finally로 입력창 갇힘 완벽 방어)
-let isEditingProjectTitle = false;
-
+// 프로젝트 이름 인라인 수정 로직 (독립 상태 및 Enter/Blur/Tab전환 완벽 방어)
 currentFolderTitle?.addEventListener('click', () => {
   if (isEditingProjectTitle || activeFolderId === 'inbox') return;
   const currentFolder = folders.find(f => f.id === activeFolderId);
   if (!currentFolder) return;
   
   isEditingProjectTitle = true;
+  activeEditingFolderId = activeFolderId;
 
   const input = document.createElement('input');
   input.type = 'text';
@@ -498,6 +518,7 @@ currentFolderTitle?.addEventListener('click', () => {
   input.style.padding = '0.2rem 0.5rem';
   input.style.borderRadius = 'var(--radius-sm)';
   
+  activeEditInput = input;
   currentFolderTitle.replaceWith(input);
   input.focus();
   input.select();
@@ -508,31 +529,35 @@ currentFolderTitle?.addEventListener('click', () => {
     if (isFinished) return;
     isFinished = true;
     
+    const targetFolderId = activeEditingFolderId;
+    
     try {
       const newName = input.value.trim();
-      if (shouldSave && newName && newName !== currentFolder.name) {
-        // 1. 상태 및 UI 즉시 반영 (낙관적 갱신)
+      if (shouldSave && newName && newName !== currentFolder.name && targetFolderId) {
+        // 1. 해당 프로젝트 상태 및 타이틀 텍스트 즉시 변경
         currentFolder.name = newName;
         currentFolderTitle.textContent = newName;
         
         // 2. 파이어베이스 클라우드 동기화
         const ref = getFoldersRef();
         if (ref) {
-          await ref.doc(activeFolderId).update({ name: newName }).catch(err => {
+          await ref.doc(targetFolderId).update({ name: newName }).catch(err => {
             alert(`프로젝트 이름 수정 실패: ${err.message}`);
           });
         }
       }
     } catch (err) {
-      console.warn('프로젝트 이름 수정 중 에러 예외:', err);
+      console.warn('프로젝트 이름 수정 중 예외:', err);
     } finally {
-      // 3. (핵심) 에러 여부와 상관없이 입력창을 무조건 지우고 일반 텍스트로 원복
+      // 3. 편집 상태 완전 청소 및 입력창 종료
       if (input.parentNode) {
         input.replaceWith(currentFolderTitle);
       }
+      activeEditInput = null;
+      activeEditingFolderId = null;
+      isEditingProjectTitle = false;
       updateFolderTitle();
       renderFolders();
-      isEditingProjectTitle = false;
     }
   };
   
@@ -543,7 +568,7 @@ currentFolderTitle?.addEventListener('click', () => {
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      input.blur();
+      input.blur(); // Enter 시 강제 blur 호출로 완벽 종료
     } else if (e.key === 'Escape') {
       e.preventDefault();
       finishEdit(false);
