@@ -285,21 +285,28 @@ function updateUserDebugInfo() {
 }
 
 async function setupFirestoreListeners(uid) {
-  if (!uid || !currentUser) return;
+  if (!uid || !currentUser) {
+    alert("데이터 로드 실패: 유저 인증 정보(UID)를 찾을 수 없습니다.");
+    return;
+  }
 
   const foldersRef = getFoldersRef();
   const todosRef = getTodosRef();
-  if (!foldersRef || !todosRef) return;
+  if (!foldersRef || !todosRef) {
+    alert("데이터 로드 실패: Firestore 컬렉션 참조 생성 실패.");
+    return;
+  }
   
   if (unsubscribeFolders) unsubscribeFolders();
   if (unsubscribeTodos) unsubscribeTodos();
 
   updateUserDebugInfo();
 
-  // 1. 강제 서버 조회 (모바일 로컬 스토리지/캐시 엉킴 방지)
+  // 1. 강제 서버 조회 (모바일 스토리지/캐시 엉킴 방지 및 에러 시 alert 팝업)
   try {
     const serverFolders = await foldersRef.get({ source: 'server' }).catch(err => {
-      console.warn('[Firestore] 서버 폴더 직접 조회 실패 (기본 캐시 수신):', err);
+      console.warn('[Firestore] 서버 폴더 직접 조회 예외:', err);
+      alert("데이터 로드 경고 (서버 폴더 조회): " + err.message);
       return null;
     });
     if (serverFolders) {
@@ -308,12 +315,13 @@ async function setupFirestoreListeners(uid) {
       processFoldersData();
     }
   } catch (e) {
-    console.warn('[Firestore] 서버 폴더 로드 에러:', e);
+    alert("데이터 로드 실패 (서버 폴더 예외): " + e.message);
   }
 
   try {
     const serverTodos = await todosRef.get({ source: 'server' }).catch(err => {
-      console.warn('[Firestore] 서버 할일 직접 조회 실패 (기본 캐시 수신):', err);
+      console.warn('[Firestore] 서버 할일 직접 조회 예외:', err);
+      alert("데이터 로드 경고 (서버 할일 조회): " + err.message);
       return null;
     });
     if (serverTodos) {
@@ -322,10 +330,10 @@ async function setupFirestoreListeners(uid) {
       processTodosData();
     }
   } catch (e) {
-    console.warn('[Firestore] 서버 할일 로드 에러:', e);
+    alert("데이터 로드 실패 (서버 할일 예외): " + e.message);
   }
 
-  // 2. 실시간 snapshot 연결
+  // 2. 실시간 snapshot 연결 (에러 발생 시 alert 팝업)
   unsubscribeFolders = foldersRef.onSnapshot({ includeMetadataChanges: true }, snapshot => {
     folders = [];
     snapshot.forEach(doc => {
@@ -333,7 +341,7 @@ async function setupFirestoreListeners(uid) {
     });
     processFoldersData();
   }, err => {
-    console.warn(`[Firestore Error] 폴더 불러오기 실패:\n${err.message}`);
+    alert("데이터 로드 실패 (폴더 리스너): " + err.message);
   });
 
   unsubscribeTodos = todosRef.onSnapshot({ includeMetadataChanges: true }, snapshot => {
@@ -343,7 +351,7 @@ async function setupFirestoreListeners(uid) {
     });
     processTodosData();
   }, err => {
-    console.warn(`[Firestore Error] 할 일 불러오기 실패:\n${err.message}`);
+    alert("데이터 로드 실패 (할일 리스너): " + err.message);
   });
 }
 

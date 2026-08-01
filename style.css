@@ -238,6 +238,7 @@ body {
 .sidebar {
   width: var(--sidebar-width);
   height: 100vh;
+  height: 100dvh;
   background-color: var(--bg-sidebar);
   border-right: 1px solid var(--border-main);
   display: flex;
@@ -1153,7 +1154,13 @@ body {
 /* Responsive */
 @media (max-width: 768px) {
   .sidebar {
+    height: 100dvh;
     transform: translateX(-100%);
+    padding-bottom: 2rem;
+  }
+
+  .sidebar-footer {
+    padding-bottom: 2.5rem;
   }
 
   .sidebar.open {
