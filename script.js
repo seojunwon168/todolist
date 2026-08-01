@@ -19,16 +19,12 @@ if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
     auth = firebase.auth();
     db = firebase.firestore();
     
-    // 방화벽/백신 통신 차단 우회 및 영구 오프라인 저장소 설정
+    // 오프라인 캐시 지속성(enablePersistence) 전면 비활성화 및 롱폴링 설정
     db.settings({
-      experimentalForceLongPolling: true,
-      cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
-    });
-    db.enablePersistence().catch(function(err) {
-      console.warn('[Firestore] 오프라인 저장소 활성화 실패:', err);
+      experimentalForceLongPolling: true
     });
     
-    // 모바일 리디렉트 로그인 성공 결과 수신 (안전 처리)
+    // 모바일 리디렉트 로그인 성공 결과 수신
     auth.getRedirectResult().then(result => {
       if (result && result.user) {
         console.log('[Auth] 리디렉트 로그인 성공:', result.user.email);
@@ -50,12 +46,16 @@ if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
           
           if (loginContainer) loginContainer.style.display = 'none';
           
-          // 순서 보장: 데이터 로딩 및 렌더링이 완전히 끝날 때까지 대기
+          // 순서 보장: 실시간 데이터 스냅샷 첫 수신까지 완전 대기
           updateUserDebugInfo();
-          await setupFirestoreListeners(user.uid);
+          try {
+            await setupFirestoreListeners(user.uid);
+          } catch (listenErr) {
+            alert('서버 연결 실패: ' + listenErr.message);
+          }
           
           if (appContainer) appContainer.style.display = 'block';
-          hideLoadingScreen(); // 데이터 가져온 직후 로딩 화면 제거!
+          hideLoadingScreen();
         } else {
           currentUser = null;
           const loginContainer = document.getElementById('loginContainer');
@@ -78,7 +78,7 @@ if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
       }
     });
   } catch (initErr) {
-    console.error('[Firebase] 초기화 중 오류 발생 (UI 멈춤 방지):', initErr);
+    console.error('[Firebase] 초기화 중 오류 발생:', initErr);
     hideLoadingScreen();
   }
 }
@@ -119,7 +119,6 @@ const todoInput = document.getElementById('todoInput');
 const typeToggleBtn = document.getElementById('typeToggleBtn');
 const filterBtns = document.querySelectorAll('.filter-btn');
 
-// (수정) 정확한 ID 바인딩
 const currentFolderTitle = document.getElementById('currentFolderTitle');
 
 // Trash
@@ -181,7 +180,6 @@ function closeMobileSidebar() {
 // 3. Authentication (Login & Signup)
 // ==========================================
 
-// 비밀번호 보기/숨기기 토글 유틸리티
 const pwToggleBtns = document.querySelectorAll('.pw-toggle-btn');
 pwToggleBtns.forEach(btn => {
   btn.addEventListener('click', () => {
@@ -265,7 +263,7 @@ logoutBtn?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 4. Firestore Database Fetching (덮어쓰기 없음 로직 유지)
+// 4. Firestore Database Fetching (실시간 전면 교체)
 // ==========================================
 
 function getFoldersRef() {
@@ -278,7 +276,6 @@ function getTodosRef() {
   return db.collection('users').doc(currentUser.uid).collection('todos');
 }
 
-// 디버그 정보 UI 업데이트 함수
 function updateUserDebugInfo() {
   const userEmailText = document.getElementById('userEmailText');
   const userUidBadge = document.getElementById('userUidBadge');
@@ -299,74 +296,63 @@ function updateUserDebugInfo() {
   }
 }
 
-async function setupFirestoreListeners(uid) {
-  if (!uid || !currentUser) {
-    alert("데이터 로드 실패: 유저 인증 정보(UID)를 찾을 수 없습니다.");
-    return;
-  }
+// 실시간 동기화(onSnapshot) 전면 적용 및 순서 보장 Promise 반환
+function setupFirestoreListeners(uid) {
+  return new Promise((resolve, reject) => {
+    if (!uid || !currentUser) {
+      alert("데이터 로드 실패: 유저 인증 정보(UID)를 찾을 수 없습니다.");
+      reject(new Error("No user UID"));
+      return;
+    }
 
-  const foldersRef = getFoldersRef();
-  const todosRef = getTodosRef();
-  if (!foldersRef || !todosRef) {
-    alert("데이터 로드 실패: Firestore 컬렉션 참조 생성 실패.");
-    return;
-  }
-  
-  if (unsubscribeFolders) unsubscribeFolders();
-  if (unsubscribeTodos) unsubscribeTodos();
+    const foldersRef = getFoldersRef();
+    const todosRef = getTodosRef();
+    if (!foldersRef || !todosRef) {
+      alert("데이터 로드 실패: Firestore 컬렉션 참조 생성 실패.");
+      reject(new Error("No collection refs"));
+      return;
+    }
+    
+    if (unsubscribeFolders) unsubscribeFolders();
+    if (unsubscribeTodos) unsubscribeTodos();
 
-  updateUserDebugInfo();
+    updateUserDebugInfo();
 
-  // 1. 유연한 초기 데이터 로드 (기본 get 사용 - 온/오프라인 자동 동기화)
-  try {
-    const foldersSnapshot = await foldersRef.get().catch(err => {
-      console.warn('[Firestore] 폴더 조회 예외:', err);
-      alert("데이터 로드 경고 (폴더 조회): " + err.message);
-      return null;
-    });
-    if (foldersSnapshot) {
+    let foldersLoaded = false;
+    let todosLoaded = false;
+
+    function checkInitialLoadComplete() {
+      if (foldersLoaded && todosLoaded) {
+        resolve();
+      }
+    }
+
+    // 실시간 onSnapshot 온전히 활성화 (서버 수신 즉시 UI 갱신)
+    unsubscribeFolders = foldersRef.onSnapshot(snapshot => {
       folders = [];
-      foldersSnapshot.forEach(doc => folders.push({ id: doc.id, ...doc.data() }));
+      snapshot.forEach(doc => {
+        folders.push({ id: doc.id, ...doc.data() });
+      });
       processFoldersData();
-    }
-  } catch (e) {
-    alert("데이터 로드 실패 (폴더 예외): " + e.message);
-  }
-
-  try {
-    const todosSnapshot = await todosRef.get().catch(err => {
-      console.warn('[Firestore] 할일 조회 예외:', err);
-      alert("데이터 로드 경고 (할일 조회): " + err.message);
-      return null;
+      foldersLoaded = true;
+      checkInitialLoadComplete();
+    }, err => {
+      alert("서버 통신 실패 (폴더 리스너): " + err.message);
+      reject(err);
     });
-    if (todosSnapshot) {
+
+    unsubscribeTodos = todosRef.onSnapshot(snapshot => {
       todos = [];
-      todosSnapshot.forEach(doc => todos.push({ id: doc.id, ...doc.data() }));
+      snapshot.forEach(doc => {
+        todos.push({ id: doc.id, ...doc.data() });
+      });
       processTodosData();
-    }
-  } catch (e) {
-    alert("데이터 로드 실패 (할일 예외): " + e.message);
-  }
-
-  // 2. 실시간 snapshot 연결 (에러 발생 시 alert 팝업 유지)
-  unsubscribeFolders = foldersRef.onSnapshot(snapshot => {
-    folders = [];
-    snapshot.forEach(doc => {
-      folders.push({ id: doc.id, ...doc.data() });
+      todosLoaded = true;
+      checkInitialLoadComplete();
+    }, err => {
+      alert("서버 통신 실패 (할일 리스너): " + err.message);
+      reject(err);
     });
-    processFoldersData();
-  }, err => {
-    alert("데이터 로드 실패 (폴더 리스너): " + err.message);
-  });
-
-  unsubscribeTodos = todosRef.onSnapshot(snapshot => {
-    todos = [];
-    snapshot.forEach(doc => {
-      todos.push({ id: doc.id, ...doc.data() });
-    });
-    processTodosData();
-  }, err => {
-    alert("데이터 로드 실패 (할일 리스너): " + err.message);
   });
 }
 
@@ -427,7 +413,6 @@ function renderFolders() {
     icon.className = 'folder-icon';
     icon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
     
-    // [수정1] 올바른 CSS 클래스(folder-text) 할당으로 사이드바 왼쪽 정렬 복구
     const name = document.createElement('span');
     name.className = 'folder-text';
     name.textContent = folder.name || 'Untitled';
@@ -468,14 +453,12 @@ function renderFolders() {
   updateFolderTitle();
 }
 
-// [수정2] 타이틀 동적 업데이트 복구
 function updateFolderTitle() {
   if (!currentFolderTitle) return;
   const currentFolder = folders.find(f => f.id === activeFolderId);
   currentFolderTitle.textContent = currentFolder ? currentFolder.name : 'Inbox';
 }
 
-// [수정3] 인라인 수정 로직 복구
 currentFolderTitle?.addEventListener('click', () => {
   if (activeFolderId === 'inbox') return;
   const currentFolder = folders.find(f => f.id === activeFolderId);
@@ -499,13 +482,17 @@ currentFolderTitle?.addEventListener('click', () => {
   
   let isSaved = false;
   
-  const saveName = () => {
+  const saveName = async () => {
     if (isSaved) return;
     isSaved = true;
     
     const newName = input.value.trim();
     if (newName && newName !== currentFolder.name) {
-      getFoldersRef().doc(activeFolderId).update({ name: newName }).catch(err => alert(`프로젝트 이름 수정 실패: ${err.message}`));
+      try {
+        await getFoldersRef().doc(activeFolderId).update({ name: newName });
+      } catch (err) {
+        alert('서버 저장 실패 (프로젝트 이름 수정): ' + err.message);
+      }
     }
     input.replaceWith(currentFolderTitle);
     updateFolderTitle();
@@ -521,36 +508,40 @@ currentFolderTitle?.addEventListener('click', () => {
   });
 });
 
-addFolderBtn?.addEventListener('click', () => {
+addFolderBtn?.addEventListener('click', async () => {
   const ref = getFoldersRef();
   if (!ref) return;
-  const newFolderRef = ref.doc();
-  newFolderRef.set({
-    name: 'New Project',
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => {
+  try {
+    const newFolderRef = ref.doc();
+    await newFolderRef.set({
+      name: 'New Project',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
     activeFolderId = newFolderRef.id;
-  }).catch(err => alert(`프로젝트 생성 실패: ${err.message}`));
+  } catch (err) {
+    alert('서버 저장 실패 (프로젝트 생성): ' + err.message);
+  }
 });
 
-function deleteFolder(folderId) {
+async function deleteFolder(folderId) {
   if (folderId === 'inbox') return;
   
-  const batch = db.batch();
-  batch.delete(getFoldersRef().doc(folderId));
-  
-  const todosToDelete = todos.filter(t => t.folderId === folderId);
-  todosToDelete.forEach(t => {
-    batch.delete(getTodosRef().doc(t.id));
-  });
-  
-  batch.commit()
-    .then(() => {
-      if (activeFolderId === folderId) {
-        activeFolderId = 'inbox';
-      }
-    })
-    .catch(err => alert(`프로젝트 삭제 실패: ${err.message}`));
+  try {
+    const batch = db.batch();
+    batch.delete(getFoldersRef().doc(folderId));
+    
+    const todosToDelete = todos.filter(t => t.folderId === folderId);
+    todosToDelete.forEach(t => {
+      batch.delete(getTodosRef().doc(t.id));
+    });
+    
+    await batch.commit();
+    if (activeFolderId === folderId) {
+      activeFolderId = 'inbox';
+    }
+  } catch (err) {
+    alert('서버 저장 실패 (프로젝트 삭제): ' + err.message);
+  }
 }
 
 // ==========================================
@@ -571,7 +562,6 @@ function renderTodos(useAnimation = false) {
   const completedTodos = allActiveTodos.filter(t => t.completed);
   const inProgressTodos = allActiveTodos.filter(t => !t.completed);
   
-  // 상단 필터 및 진행률 카운터(배지) 업데이트
   if (badgeAll) badgeAll.textContent = allActiveTodos.length;
   if (badgeActive) badgeActive.textContent = inProgressTodos.length;
   if (badgeCompleted) badgeCompleted.textContent = completedTodos.length;
@@ -595,10 +585,9 @@ function renderTodos(useAnimation = false) {
     li.dataset.id = todo.id;
     li.draggable = !isSelectMode;
     
-    // 선택 모드일 경우: 행(li) 전체 클릭으로 다중 선택 토글
     li.addEventListener('click', (e) => {
       if (!isSelectMode) return;
-      if (e.target === checkbox) return; // 체크박스 자체 클릭 시 중복 처리 방지
+      if (e.target === checkbox) return;
       
       if (selectedTodoIds.has(todo.id)) {
         selectedTodoIds.delete(todo.id);
@@ -609,7 +598,6 @@ function renderTodos(useAnimation = false) {
       }
     });
     
-    // 1. 체크박스 (일반 모드: 완료 토글 / 선택 모드: 다중 선택)
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'todo-checkbox';
@@ -628,7 +616,6 @@ function renderTodos(useAnimation = false) {
       checkbox.addEventListener('change', () => toggleTodo(todo.id, checkbox.checked));
     }
     
-    // 2. 할 일 내용 (중앙)
     const contentDiv = document.createElement('div');
     contentDiv.className = 'todo-content';
     
@@ -643,7 +630,6 @@ function renderTodos(useAnimation = false) {
     contentDiv.appendChild(typeIndicator);
     contentDiv.appendChild(textSpan);
     
-    // 3. 삭제 버튼 (맨 오른쪽)
     const delBtn = document.createElement('button');
     delBtn.className = 'delete-btn';
     delBtn.innerHTML = `
@@ -660,7 +646,6 @@ function renderTodos(useAnimation = false) {
     });
 
     textSpan.addEventListener('click', (e) => {
-      // 선택 모드일 경에는 인라인 수정을 차단 (li 클릭 이벤트가 토글 처리)
       if (isSelectMode) return;
       
       e.stopPropagation();
@@ -673,12 +658,16 @@ function renderTodos(useAnimation = false) {
       input.focus();
       
       let isSaved = false;
-      const saveText = () => {
+      const saveText = async () => {
         if (isSaved) return;
         isSaved = true;
         const newText = input.value.trim();
         if (newText && newText !== todo.text) {
-          getTodosRef().doc(todo.id).update({ text: newText }).catch(err => alert(`수정 실패: ${err.message}`));
+          try {
+            await getTodosRef().doc(todo.id).update({ text: newText });
+          } catch (err) {
+            alert('서버 저장 실패 (내용 수정): ' + err.message);
+          }
         } else {
           contentDiv.replaceChild(textSpan, input);
         }
@@ -771,7 +760,7 @@ function setupDragAndDrop(li, id) {
   });
 }
 
-function reorderTodosInDOM() {
+async function reorderTodosInDOM() {
   const items = [...todoList.querySelectorAll('.todo-item')];
   const batch = db.batch();
   const ref = getTodosRef();
@@ -781,10 +770,13 @@ function reorderTodosInDOM() {
     batch.update(ref.doc(id), { order: index });
   });
   
-  batch.commit().catch(err => alert(`순서 변경 실패: ${err.message}`));
+  try {
+    await batch.commit();
+  } catch (err) {
+    alert('서버 저장 실패 (순서 변경): ' + err.message);
+  }
 }
 
-// [수정4] 단일 토글 버튼 로직 복구
 typeToggleBtn?.addEventListener('click', () => {
   if (currentTodoType === 'task') {
     currentTodoType = 'item';
@@ -806,36 +798,47 @@ todoForm?.addEventListener('submit', (e) => {
   todoInput.value = '';
 });
 
-function addTodo(text, type) {
+async function addTodo(text, type) {
   const ref = getTodosRef();
   if (!ref) return;
   
   const activeList = getActiveTodos();
   const maxOrder = activeList.length > 0 ? Math.max(...activeList.map(t => t.order || 0)) : 0;
   
-  ref.add({
-    folderId: activeFolderId,
-    text: text,
-    completed: false,
-    type: type,
-    order: maxOrder + 1,
-    deleted: false,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => {
+  try {
+    await ref.add({
+      folderId: activeFolderId,
+      text: text,
+      completed: false,
+      type: type,
+      order: maxOrder + 1,
+      deleted: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
     if (filterState === 'completed') {
       filterState = 'all';
       updateFilterUI();
     }
-  }).catch(err => alert(`항목 추가 실패: ${err.message}`));
+  } catch (err) {
+    alert('서버 저장 실패 (할 일 추가): ' + err.message);
+  }
 }
 
-function toggleTodo(id, isChecked) {
-  getTodosRef().doc(id).update({ completed: isChecked }).catch(err => alert(`상태 변경 실패: ${err.message}`));
+async function toggleTodo(id, isChecked) {
+  try {
+    await getTodosRef().doc(id).update({ completed: isChecked });
+  } catch (err) {
+    alert('서버 저장 실패 (상태 변경): ' + err.message);
+  }
 }
 
-// [수정5] 영구 삭제가 아닌 deleted 플래그 처리
-function deleteTodo(id) {
-  getTodosRef().doc(id).update({ deleted: true }).catch(err => alert(`삭제 실패: ${err.message}`));
+async function deleteTodo(id) {
+  try {
+    await getTodosRef().doc(id).update({ deleted: true });
+  } catch (err) {
+    alert('서버 저장 실패 (삭제 처리): ' + err.message);
+  }
 }
 
 // ==========================================
@@ -856,7 +859,6 @@ function updateFilterUI() {
   document.querySelector(`.filter-btn[data-filter="${filterState}"]`)?.classList.add('active');
 }
 
-// [수정5] 휴지통 아코디언 로직 (classList.toggle)
 trashToggle?.addEventListener('click', (e) => {
   if (e.target.closest('#emptyTrashBtn')) return;
   const section = trashToggle.closest('.trash-section');
@@ -897,16 +899,24 @@ function renderTrash() {
     const restoreBtn = document.createElement('button');
     restoreBtn.className = 'action-btn restore';
     restoreBtn.textContent = '복구';
-    restoreBtn.addEventListener('click', () => {
-      getTodosRef().doc(todo.id).update({ deleted: false, completed: false }).catch(err => alert(`복구 실패: ${err.message}`));
+    restoreBtn.addEventListener('click', async () => {
+      try {
+        await getTodosRef().doc(todo.id).update({ deleted: false, completed: false });
+      } catch (err) {
+        alert('서버 저장 실패 (복구 처리): ' + err.message);
+      }
     });
     
     const permDelBtn = document.createElement('button');
     permDelBtn.className = 'action-btn permanent-delete';
     permDelBtn.textContent = '완전 삭제';
-    permDelBtn.addEventListener('click', () => {
+    permDelBtn.addEventListener('click', async () => {
       if (confirm('완전히 삭제하시겠습니까?')) {
-        getTodosRef().doc(todo.id).delete().catch(err => alert(`영구삭제 실패: ${err.message}`));
+        try {
+          await getTodosRef().doc(todo.id).delete();
+        } catch (err) {
+          alert('서버 저장 실패 (영구 삭제): ' + err.message);
+        }
       }
     });
     
@@ -919,7 +929,7 @@ function renderTrash() {
   });
 }
 
-emptyTrashBtn?.addEventListener('click', () => {
+emptyTrashBtn?.addEventListener('click', async () => {
   if (!confirm('휴지통을 비우시겠습니까? 이 작업은 취소할 수 없습니다.')) return;
   
   const deletedTodos = todos.filter(t => t.deleted);
@@ -930,7 +940,11 @@ emptyTrashBtn?.addEventListener('click', () => {
     batch.delete(ref.doc(todo.id));
   });
   
-  batch.commit().catch(err => alert(`휴지통 비우기 실패: ${err.message}`));
+  try {
+    await batch.commit();
+  } catch (err) {
+    alert('서버 저장 실패 (휴지통 비우기): ' + err.message);
+  }
 });
 
 // ==========================================
@@ -955,7 +969,6 @@ function updateBulkBarUI() {
   }
 }
 
-// 선택 모드 완전 해제 및 UI 초기화 헬퍼 함수
 function exitSelectMode() {
   isSelectMode = false;
   selectedTodoIds.clear();
@@ -967,7 +980,6 @@ function exitSelectMode() {
   renderTodos();
 }
 
-// [선택 / 취소] 모드 토글 버튼
 toggleSelectModeBtn?.addEventListener('click', () => {
   if (isSelectMode) {
     exitSelectMode();
@@ -981,8 +993,7 @@ toggleSelectModeBtn?.addEventListener('click', () => {
   }
 });
 
-// [선택 항목 완료 처리]
-bulkCompleteBtn?.addEventListener('click', () => {
+bulkCompleteBtn?.addEventListener('click', async () => {
   if (selectedTodoIds.size === 0) {
     alert('완료 처리할 항목을 선택해 주세요.');
     return;
@@ -1005,15 +1016,15 @@ bulkCompleteBtn?.addEventListener('click', () => {
     return;
   }
   
-  batch.commit()
-    .then(() => {
-      exitSelectMode(); // 일괄 처리 완료 후 자동 선택 모드 해제
-    })
-    .catch(err => alert(`일괄 완료 처리 실패: ${err.message}`));
+  try {
+    await batch.commit();
+    exitSelectMode();
+  } catch (err) {
+    alert('서버 저장 실패 (일괄 완료): ' + err.message);
+  }
 });
 
-// [선택 항목 진행 중으로 이동]
-bulkActiveBtn?.addEventListener('click', () => {
+bulkActiveBtn?.addEventListener('click', async () => {
   if (selectedTodoIds.size === 0) {
     alert('진행 중으로 이동할 항목을 선택해 주세요.');
     return;
@@ -1036,15 +1047,15 @@ bulkActiveBtn?.addEventListener('click', () => {
     return;
   }
   
-  batch.commit()
-    .then(() => {
-      exitSelectMode(); // 일괄 처리 완료 후 자동 선택 모드 해제
-    })
-    .catch(err => alert(`일괄 진행 중 이동 실패: ${err.message}`));
+  try {
+    await batch.commit();
+    exitSelectMode();
+  } catch (err) {
+    alert('서버 저장 실패 (일괄 진행중 이동): ' + err.message);
+  }
 });
 
-// [완료 항목 전체 리셋]
-resetAllCompletedBtn?.addEventListener('click', () => {
+resetAllCompletedBtn?.addEventListener('click', async () => {
   const completedInFolder = todos.filter(t => t.folderId === activeFolderId && t.completed && !t.deleted);
   
   if (completedInFolder.length === 0) {
@@ -1063,6 +1074,9 @@ resetAllCompletedBtn?.addEventListener('click', () => {
     batch.update(ref.doc(t.id), { completed: false });
   });
   
-  batch.commit()
-    .catch(err => alert(`전체 리셋 실패: ${err.message}`));
+  try {
+    await batch.commit();
+  } catch (err) {
+    alert('서버 저장 실패 (전체 리셋): ' + err.message);
+  }
 });
