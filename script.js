@@ -370,6 +370,14 @@ async function setupFirestoreListeners(uid) {
   });
 }
 
+function getFolderTimestamp(folder) {
+  if (!folder || !folder.createdAt) return 0;
+  if (typeof folder.createdAt === 'number') return folder.createdAt;
+  if (typeof folder.createdAt.toMillis === 'function') return folder.createdAt.toMillis();
+  if (folder.createdAt.seconds) return folder.createdAt.seconds * 1000;
+  return 0;
+}
+
 function processFoldersData() {
   if (!folders.find(f => f.id === 'inbox')) {
     folders.push({
@@ -379,12 +387,14 @@ function processFoldersData() {
     });
   }
 
+  // [수정1] Inbox 상단 고정 + 생성 순서(createdAt) 명확 오름차순 정렬 (새 프로젝트는 맨 아래)
   folders.sort((a, b) => {
     if (a.id === 'inbox') return -1;
     if (b.id === 'inbox') return 1;
-    const timeA = a.createdAt ? a.createdAt.toMillis() : Date.now();
-    const timeB = b.createdAt ? b.createdAt.toMillis() : Date.now();
-    return timeA - timeB; 
+    const timeA = getFolderTimestamp(a);
+    const timeB = getFolderTimestamp(b);
+    if (timeA !== timeB) return timeA - timeB;
+    return a.id.localeCompare(b.id); // 타임스탬프 동일 시 ID 기반 고정 정렬
   });
 
   if (!folders.find(f => f.id === activeFolderId)) {
@@ -576,16 +586,41 @@ currentFolderTitle?.addEventListener('click', () => {
   });
 });
 
-addFolderBtn?.addEventListener('click', () => {
+// [수정2] 프로젝트 추가 시 연타 방지 및 명시적 생성시간 부여 (순서 뒤섞임 차단)
+let isAddingFolder = false;
+
+addFolderBtn?.addEventListener('click', async () => {
+  if (isAddingFolder) return;
+  
   const ref = getFoldersRef();
   if (!ref) return;
-  const newFolderRef = ref.doc();
-  newFolderRef.set({
-    name: 'New Project',
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => {
+  
+  isAddingFolder = true;
+  if (addFolderBtn) {
+    addFolderBtn.disabled = true;
+    addFolderBtn.style.opacity = '0.5';
+    addFolderBtn.style.cursor = 'not-allowed';
+  }
+  
+  try {
+    const newFolderRef = ref.doc();
+    const newFolderData = {
+      name: 'New Project',
+      createdAt: Date.now() // 명시적 숫자로 즉시 저장하여 서순 엉킴 100% 방지
+    };
+    
+    await newFolderRef.set(newFolderData);
     activeFolderId = newFolderRef.id;
-  }).catch(err => alert(`프로젝트 생성 실패: ${err.message}`));
+  } catch (err) {
+    alert(`프로젝트 생성 실패: ${err.message}`);
+  } finally {
+    isAddingFolder = false;
+    if (addFolderBtn) {
+      addFolderBtn.disabled = false;
+      addFolderBtn.style.opacity = '1';
+      addFolderBtn.style.cursor = 'pointer';
+    }
+  }
 });
 
 function deleteFolder(folderId) {
