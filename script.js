@@ -302,39 +302,39 @@ async function setupFirestoreListeners(uid) {
 
   updateUserDebugInfo();
 
-  // 1. 강제 서버 조회 (모바일 스토리지/캐시 엉킴 방지 및 에러 시 alert 팝업)
+  // 1. 유연한 초기 데이터 로드 (기본 get 사용 - 온/오프라인 자동 동기화)
   try {
-    const serverFolders = await foldersRef.get({ source: 'server' }).catch(err => {
-      console.warn('[Firestore] 서버 폴더 직접 조회 예외:', err);
-      alert("데이터 로드 경고 (서버 폴더 조회): " + err.message);
+    const foldersSnapshot = await foldersRef.get().catch(err => {
+      console.warn('[Firestore] 폴더 조회 예외:', err);
+      alert("데이터 로드 경고 (폴더 조회): " + err.message);
       return null;
     });
-    if (serverFolders) {
+    if (foldersSnapshot) {
       folders = [];
-      serverFolders.forEach(doc => folders.push({ id: doc.id, ...doc.data() }));
+      foldersSnapshot.forEach(doc => folders.push({ id: doc.id, ...doc.data() }));
       processFoldersData();
     }
   } catch (e) {
-    alert("데이터 로드 실패 (서버 폴더 예외): " + e.message);
+    alert("데이터 로드 실패 (폴더 예외): " + e.message);
   }
 
   try {
-    const serverTodos = await todosRef.get({ source: 'server' }).catch(err => {
-      console.warn('[Firestore] 서버 할일 직접 조회 예외:', err);
-      alert("데이터 로드 경고 (서버 할일 조회): " + err.message);
+    const todosSnapshot = await todosRef.get().catch(err => {
+      console.warn('[Firestore] 할일 조회 예외:', err);
+      alert("데이터 로드 경고 (할일 조회): " + err.message);
       return null;
     });
-    if (serverTodos) {
+    if (todosSnapshot) {
       todos = [];
-      serverTodos.forEach(doc => todos.push({ id: doc.id, ...doc.data() }));
+      todosSnapshot.forEach(doc => todos.push({ id: doc.id, ...doc.data() }));
       processTodosData();
     }
   } catch (e) {
-    alert("데이터 로드 실패 (서버 할일 예외): " + e.message);
+    alert("데이터 로드 실패 (할일 예외): " + e.message);
   }
 
-  // 2. 실시간 snapshot 연결 (에러 발생 시 alert 팝업)
-  unsubscribeFolders = foldersRef.onSnapshot({ includeMetadataChanges: true }, snapshot => {
+  // 2. 실시간 snapshot 연결 (에러 발생 시 alert 팝업 유지)
+  unsubscribeFolders = foldersRef.onSnapshot(snapshot => {
     folders = [];
     snapshot.forEach(doc => {
       folders.push({ id: doc.id, ...doc.data() });
@@ -344,7 +344,7 @@ async function setupFirestoreListeners(uid) {
     alert("데이터 로드 실패 (폴더 리스너): " + err.message);
   });
 
-  unsubscribeTodos = todosRef.onSnapshot({ includeMetadataChanges: true }, snapshot => {
+  unsubscribeTodos = todosRef.onSnapshot(snapshot => {
     todos = [];
     snapshot.forEach(doc => {
       todos.push({ id: doc.id, ...doc.data() });
