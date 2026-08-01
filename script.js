@@ -4,11 +4,14 @@
 let db;
 let auth;
 
-// 로컬 스토리지 찌꺼기 강제 초기화
-try {
-  localStorage.clear();
-} catch (e) {
-  console.warn('localStorage clear failed', e);
+function showLoadingScreen() {
+  const loadingScreen = document.getElementById('loadingScreen');
+  if (loadingScreen) loadingScreen.style.display = 'flex';
+}
+
+function hideLoadingScreen() {
+  const loadingScreen = document.getElementById('loadingScreen');
+  if (loadingScreen) loadingScreen.style.display = 'none';
 }
 
 if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
@@ -38,34 +41,45 @@ if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
       try {
         if (isSigningUp) return; 
         
+        showLoadingScreen();
+        
         if (user && user.uid) {
           currentUser = user;
           const loginContainer = document.getElementById('loginContainer');
           const appContainer = document.getElementById('appContainer');
-          if (loginContainer) loginContainer.style.display = 'none';
-          if (appContainer) appContainer.style.display = 'block';
           
+          if (loginContainer) loginContainer.style.display = 'none';
+          
+          // 순서 보장: 데이터 로딩 및 렌더링이 완전히 끝날 때까지 대기
           updateUserDebugInfo();
           await setupFirestoreListeners(user.uid);
+          
+          if (appContainer) appContainer.style.display = 'block';
+          hideLoadingScreen(); // 데이터 가져온 직후 로딩 화면 제거!
         } else {
           currentUser = null;
           const loginContainer = document.getElementById('loginContainer');
           const appContainer = document.getElementById('appContainer');
           const loginView = document.getElementById('loginView');
           const signupView = document.getElementById('signupView');
-          if (loginContainer) loginContainer.style.display = 'flex';
+          
           if (appContainer) appContainer.style.display = 'none';
+          if (loginContainer) loginContainer.style.display = 'flex';
           if (loginView) loginView.style.display = 'block';
           if (signupView) signupView.style.display = 'none';
+          
           clearLocalData();
           updateUserDebugInfo();
+          hideLoadingScreen();
         }
       } catch (authErr) {
         console.error('[Auth] onAuthStateChanged 실행 예외 방어:', authErr);
+        hideLoadingScreen();
       }
     });
   } catch (initErr) {
     console.error('[Firebase] 초기화 중 오류 발생 (UI 멈춤 방지):', initErr);
+    hideLoadingScreen();
   }
 }
 
@@ -272,15 +286,16 @@ function updateUserDebugInfo() {
   
   if (currentUser) {
     if (userEmailText) userEmailText.textContent = currentUser.email || '익명 계정';
-    if (userUidBadge) userUidBadge.textContent = `UID: ${currentUser.uid.substring(0, 5)}`;
+    if (userUidBadge) userUidBadge.textContent = `UID: ${currentUser.uid.substring(0, 7)} | Firestore 연결됨`;
   } else {
     if (userEmailText) userEmailText.textContent = '로그아웃됨';
-    if (userUidBadge) userUidBadge.textContent = 'UID: -----';
+    if (userUidBadge) userUidBadge.textContent = 'UID: ----- | 연결 해제됨';
   }
   
   const customFolderCount = folders.filter(f => f.id !== 'inbox').length;
+  const activeTodosCount = todos.filter(t => !t.deleted).length;
   if (dataCountText) {
-    dataCountText.textContent = `불러온 프로젝트 ${folders.length}개 (Inbox + ${customFolderCount}개)`;
+    dataCountText.textContent = `데이터: 프로젝트 ${folders.length}개 (Inbox+${customFolderCount}) / 할 일 ${activeTodosCount}개`;
   }
 }
 

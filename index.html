@@ -18,6 +18,11 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- 전체 화면 로딩 오버레이 (초기 깜빡임 및 비동기 순서 꼬임 방지) -->
+  <div id="loadingScreen" class="loading-screen">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">데이터를 불러오는 중입니다...</p>
+  </div>
   
   <!-- ========== 로그인/회원가입 화면 영역 ========== -->
   <section id="loginContainer" class="login-container">
@@ -226,6 +231,6 @@
     }
   </script>
   
-  <script src="script.js?v=18000"></script>
+  <script src="script.js?v=19000"></script>
 </body>
 </html>
